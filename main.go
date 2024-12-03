@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Node-tion/backend/types"
 	"embed"
 	"log"
 
@@ -37,19 +38,47 @@ func main() {
 		StartHidden:       false,
 		HideWindowOnClose: false,
 		BackgroundColour:  &options.RGBA{R: 255, G: 255, B: 255, A: 255},
-		AssetServer:       &assetserver.Options{
+		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		Menu:              nil,
-		Logger:            nil,
-		LogLevel:          logger.DEBUG,
-		OnStartup:         app.startup,
-		OnDomReady:        app.domReady,
-		OnBeforeClose:     app.beforeClose,
-		OnShutdown:        app.shutdown,
-		WindowStartState:  options.Normal,
+		Menu:             nil,
+		Logger:           nil,
+		LogLevel:         logger.DEBUG,
+		OnStartup:        app.startup,
+		OnDomReady:       app.domReady,
+		OnBeforeClose:    app.beforeClose,
+		OnShutdown:       app.shutdown,
+		WindowStartState: options.Normal,
 		Bind: []interface{}{
 			app,
+			&types.CRDTOperationsMessage{},
+			&types.CRDTOp{},
+			&types.StyledText{},
+			&types.Link{},
+			&types.ParagraphBlock{},
+			&types.TableContent{},
+			&types.HeadingBlock{},
+			&types.BulletedListBlock{},
+			&types.NumberedListBlock{},
+			&types.ImageBlock{},
+			&types.DefaultBlockProps{},
+			&types.CRDTAddBlock[types.ParagraphBlock]{},
+			&types.CRDTAddBlock[types.HeadingBlock]{},
+			&types.CRDTAddBlock[types.BulletedListBlock]{},
+			&types.CRDTAddBlock[types.NumberedListBlock]{},
+			&types.CRDTAddBlock[types.ImageBlock]{},
+			&types.CRDTAddBlock[types.TableBlock]{},
+			&types.CRDTRemoveBlock{},
+			&types.CRDTUpdateBlock[types.ParagraphBlock]{},
+			&types.CRDTUpdateBlock[types.HeadingBlock]{},
+			&types.CRDTUpdateBlock[types.BulletedListBlock]{},
+			&types.CRDTUpdateBlock[types.NumberedListBlock]{},
+			&types.CRDTUpdateBlock[types.ImageBlock]{},
+			&types.CRDTUpdateBlock[types.TableBlock]{},
+			&types.CRDTInsertChar{},
+			&types.CRDTDeleteChar{},
+			&types.CRDTAddMark{},
+			&types.CRDTRemoveMark{},
 		},
 		// Windows platform specific options
 		Windows: &windows.Options{
@@ -58,7 +87,7 @@ func main() {
 			DisableWindowIcon:    false,
 			// DisableFramelessWindowDecorations: false,
 			WebviewUserDataPath: "",
-			ZoomFactor: 1.0,
+			ZoomFactor:          1.0,
 		},
 		// Mac platform specific options
 		Mac: &mac.Options{
