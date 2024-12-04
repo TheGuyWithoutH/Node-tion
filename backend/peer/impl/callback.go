@@ -706,6 +706,27 @@ func (n *node) TLCStepReset() {
 	n.logicalClock.ResetMaxID()
 }
 
+// CRDTOperationsMessageCallback handles the CRDTOperationsMessage
+func (n *node) CRDTOperationsMessageCallback(msg types.Message, pkt transport.Packet) error {
+	crdtMsg, ok := msg.(*types.CRDTOperationsMessage)
+	if !ok {
+		return xerrors.Errorf("Message is not a CRDTOperationsMessage")
+	}
+
+	n.logCRDT.Info().Msgf("Received CRDTOperationsMessage from %s, I am %s", pkt.Header.Source, n.conf.Socket.GetAddress())
+
+	// TODO is there a way for me to know when Emile sends the CRDTOperationsMessage?
+	// bc they are for my own Editor, so I would not need to check every single update inside
+	
+	if crdtMsg.Operations[0].Origin == n.conf.Socket.GetAddress() {
+		err := n.UpdateEditor(crdtMsg.Operations)
+		if err != nil {
+			return xerrors.Errorf("Failed to update editor: %v", err)
+		}
+	}
+	return nil
+}
+
 // SendRumorsMessage sends a RumorsMessage to the source neighbor
 func (n *node) SendRumorsMessage(pkt transport.Packet, missingRumors []types.Rumor) error {
 	rumorsMsg := types.RumorsMessage{

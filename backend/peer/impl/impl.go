@@ -27,6 +27,9 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 	loggerPAXOS := zerolog.New(logIO).With().Timestamp().Logger()
 	loggerPAXOS = loggerPAXOS.Level(zerolog.NoLevel)
 
+	loggerCRDT := zerolog.New(logIO).With().Timestamp().Logger()
+	loggerCRDT = loggerCRDT.Level(zerolog.DebugLevel)
+
 	routingTable := RoutingTable{
 		mu: sync.Mutex{},
 		rt: make(peer.RoutingTable),
@@ -100,11 +103,24 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		tlcMessages: make(map[uint][]*types.TLCMessage),
 	}
 
+	editor := Editor{
+		mu: sync.Mutex{},
+		ed: make(peer.Editor),
+	}
+
+	crdtView := CRDTView{
+		mu:       sync.Mutex{},
+		crdtOpID: 0,
+		peerOpID: make(map[string]uint),
+		crdtOps:  make(map[string]*Editor),
+	}
+
 	node := node{
 		conf:               conf,
 		mu:                 sync.Mutex{},
 		log:                logger,
 		logPAXOS:           loggerPAXOS,
+		logCRDT:            loggerCRDT,
 		routingTable:       &routingTable,
 		view:               &view,
 		ackTickers:         &ackTickers,
@@ -117,6 +133,8 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		acceptor:           &acceptor,
 		proposer:           &proposer,
 		tlcMessages:        &tlcMessages,
+		editor:             &editor,
+		crdtView:           &crdtView,
 	}
 	// add itself to the routing table
 	node.SetRoutingEntry(conf.Socket.GetAddress(), conf.Socket.GetAddress())
@@ -135,6 +153,7 @@ type node struct {
 	cancel             context.CancelFunc // to cancel the listening goroutine
 	log                zerolog.Logger
 	logPAXOS           zerolog.Logger
+	logCRDT            zerolog.Logger
 	routingTable       *RoutingTable
 	view               *View
 	ackTickers         *AckMap
@@ -147,6 +166,8 @@ type node struct {
 	acceptor           *Acceptor
 	proposer           *Proposer
 	tlcMessages        *TLC
+	editor             *Editor
+	crdtView           *CRDTView
 }
 
 // Start implements peer.Service
@@ -172,6 +193,8 @@ func (n *node) Start() error {
 	n.conf.MessageRegistry.RegisterMessageCallback(&types.PaxosAcceptMessage{}, n.PaxosAcceptMessageCallback)
 
 	n.conf.MessageRegistry.RegisterMessageCallback(&types.TLCMessage{}, n.TLCMessageCallback)
+
+	n.conf.MessageRegistry.RegisterMessageCallback(&types.CRDTOperationsMessage{}, n.CRDTOperationsMessageCallback)
 
 	// use non-blocking GoRoutine to listen on incoming messages
 	go n.Listen()
@@ -353,6 +376,8 @@ func (n *node) AntiEntropyTicker() {
 			if err != nil {
 				n.log.Error().Err(err).Msg("Failed to send anti-entropy StatusMessage")
 			}
+
+			// TODO send CRDTMessage
 		}
 	}
 }

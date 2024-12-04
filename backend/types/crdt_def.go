@@ -1,10 +1,15 @@
 package types
 
+// CRDTOperationsMessage describes a message that contains a list of CRDT operations.
+//
+// - implements types.Message
 type CRDTOperationsMessage struct {
 	Operations []CRDTOperation
 }
 
-type CRDTOp struct{}
+type CRDTOp struct {
+	BlockID string
+}
 
 type TextAlignment string
 type HeadingLevel int
@@ -107,7 +112,7 @@ type DefaultBlockProps struct {
 
 type CRDTOperation struct {
 	Origin      string
-	OperationId uint64
+	OperationId uint64 // TODO ask what it is
 	DocumentId  string
 	Operation   CRDTOp
 }
@@ -138,7 +143,6 @@ type CRDTUpdateBlock[T BlockType] struct {
 type CRDTInsertChar struct {
 	CRDTOp
 	OpID      string
-	BlockID   string
 	AfterID   string
 	Character string
 }
@@ -146,14 +150,12 @@ type CRDTInsertChar struct {
 type CRDTDeleteChar struct {
 	CRDTOp
 	OpID      string
-	BlockID   string
 	RemovedID string
 }
 
 type CRDTAddMark struct {
 	CRDTOp
 	OpID     string
-	BlockID  string
 	Start    struct{}
 	End      struct{}
 	MarkType TextStyle
@@ -163,7 +165,6 @@ type CRDTAddMark struct {
 type CRDTRemoveMark struct {
 	CRDTOp
 	OpID     string
-	BlockID  string
 	Start    struct{}
 	End      struct{}
 	MarkType TextStyle

@@ -678,3 +678,67 @@ func (t *TLC) LenTLCMessages(step uint) int {
 	}
 	return len(t.tlcMessages[step])
 }
+
+// Editor is a map of documents to blocks
+type Editor struct {
+	mu sync.Mutex
+	ed peer.Editor
+}
+
+// GetEditor returns the editor of the CRDT
+func (n *node) GetEditor() peer.Editor {
+	n.editor.mu.Lock()
+	defer n.editor.mu.Unlock()
+
+	editor := make(peer.Editor, len(n.editor.ed))
+	for k, v := range n.editor.ed {
+		editor[k] = make(map[string][]types.CRDTOperation)
+		for k1, v1 := range v {
+			editor[k][k1] = make([]types.CRDTOperation, len(v1))
+			copy(editor[k][k1], v1)
+		}
+	}
+	return editor
+}
+
+// UpdateEditor updates the editor of the CRDT
+func (n *node) UpdateEditor(ops []types.CRDTOperation) error {
+	n.editor.mu.Lock()
+	defer n.editor.mu.Unlock()
+
+	// apply the operation to the editor
+	for _, op := range ops {
+		if _, exists := n.editor.ed[op.DocumentId]; !exists {
+			n.editor.ed[op.DocumentId] = make(map[string][]types.CRDTOperation)
+		}
+
+		if _, exists := n.editor.ed[op.DocumentId][op.Operation.BlockID]; !exists {
+			n.editor.ed[op.DocumentId][op.Operation.BlockID] = make([]types.CRDTOperation, 0)
+		}
+		n.editor.ed[op.DocumentId][op.Operation.BlockID] = append(n.editor.ed[op.DocumentId][op.Operation.BlockID], op)
+	}
+	return nil
+}
+
+// GetDocument returns the document of the CRDT
+func (n *node) GetDocument(docID string) map[string][]types.CRDTOperation {
+	n.editor.mu.Lock()
+	defer n.editor.mu.Unlock()
+
+	doc := make(map[string][]types.CRDTOperation)
+	for k, v := range n.editor.ed[docID] {
+		doc[k] = make([]types.CRDTOperation, len(v))
+		copy(doc[k], v)
+	}
+	return doc
+}
+
+// GetBlock returns the block of the CRDT
+func (n *node) GetBlock(docID, blockID string) []types.CRDTOperation {
+	n.editor.mu.Lock()
+	defer n.editor.mu.Unlock()
+
+	block := make([]types.CRDTOperation, len(n.editor.ed[docID][blockID]))
+	copy(block, n.editor.ed[docID][blockID])
+	return block
+}
