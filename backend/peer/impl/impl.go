@@ -108,13 +108,6 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		ed: make(peer.Editor),
 	}
 
-	crdtView := CRDTView{
-		mu:       sync.Mutex{},
-		crdtOpID: 0,
-		peerOpID: make(map[string]uint),
-		crdtOps:  make(map[string]*Editor),
-	}
-
 	node := node{
 		conf:               conf,
 		mu:                 sync.Mutex{},
@@ -134,7 +127,6 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		proposer:           &proposer,
 		tlcMessages:        &tlcMessages,
 		editor:             &editor,
-		crdtView:           &crdtView,
 	}
 	// add itself to the routing table
 	node.SetRoutingEntry(conf.Socket.GetAddress(), conf.Socket.GetAddress())
@@ -167,7 +159,6 @@ type node struct {
 	proposer           *Proposer
 	tlcMessages        *TLC
 	editor             *Editor
-	crdtView           *CRDTView
 }
 
 // Start implements peer.Service
@@ -412,7 +403,6 @@ func (n *node) AckTicker(packetHeader *transport.Header, payload transport.Messa
 
 // ProcessMsg handles the message if it's for this node.
 func (n *node) ProcessMsg(pkt transport.Packet) error {
-	//n.log.Info().Msg("Processing message")
 	err := n.conf.MessageRegistry.ProcessPacket(pkt)
 	if err != nil {
 		return xerrors.Errorf("failed to process message: %v", err)
