@@ -109,10 +109,11 @@ type DefaultBlockProps struct {
 // CRDT Operation Types
 
 type CRDTOperation struct {
+	// Operation.OpID == OperationId@Origin
 	Origin      string
-	OperationId uint64 // Operation number, corresponding to the last operation + 1 at each new operation
-	DocumentId  string
-	BlockId     string
+	OperationId uint64 // Starts from 1
+	DocumentId  string // OperationId@Origin that creates the document
+	BlockId     string // OperationId@Origin that creates the block
 	Operation   CRDTOp
 }
 

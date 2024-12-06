@@ -26,27 +26,12 @@ func Test_Editor_Simple_Update(t *testing.T) {
 	// sending a CRDT message
 
 	crdt := types.CRDTAddBlock[types.BlockType]{
-		OpID:        "op1",
-		AfterBlock:  "block0", // TODO
-		ParentBlock: "block0", // TODO
-		Props: types.ParagraphBlock{
-			Default: types.DefaultBlockProps{
-				BackgroundColor: "white",
-				TextColor:       "black",
-				TextAlignment:   "left",
-			},
-			Id: "block1",
-			Content: []types.InlineContent{
-				types.StyledText{
-					Text: "Hello, World!",
-				},
-			},
-		},
+		OpID: "op1",
 	}
 
 	crdtOp := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
-		OperationId: 0, // TODO
+		OperationId: 1,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
 		Operation:   crdt,
@@ -81,8 +66,6 @@ func Test_Editor_Simple_Update(t *testing.T) {
 
 	require.Equal(t, crdtOp.OperationId, receiver.GetBlockOps("doc1", "block1")[0].OperationId)
 	require.Equal(t, crdtOp.Origin, receiver.GetBlockOps("doc1", "block1")[0].Origin)
-	// TODO crdt.Op == receiver.GetBlockOps("doc1", "block1")[0].Operation
-	// TODO add a Name() to CRDTOp interface ?
 }
 
 // Check that the Editor can handle an update with multiple operations.
@@ -105,7 +88,7 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	crdtOp1 := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
-		OperationId: 0, // TODO
+		OperationId: 1,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
 		Operation:   crdt1,
@@ -117,7 +100,7 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	crdtOp2 := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
-		OperationId: 1, // TODO
+		OperationId: 2,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
 		Operation:   crdt2,
@@ -129,7 +112,7 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	crdtOp3 := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
-		OperationId: 2, // TODO
+		OperationId: 3,
 		DocumentId:  "doc1",
 		BlockId:     "block2",
 		Operation:   crdt3,
@@ -187,7 +170,7 @@ func Test_Editor_Broadcast(t *testing.T) {
 
 			crdtOp := types.CRDTOperation{
 				Origin:      node1.GetAddr(),
-				OperationId: 0, // TODO
+				OperationId: 1,
 				DocumentId:  "doc1",
 				BlockId:     "block1",
 				Operation: types.CRDTAddBlock[types.BlockType]{
@@ -330,7 +313,7 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 
 	crdtOp := types.CRDTOperation{
 		Origin:      node1.GetAddr(),
-		OperationId: 0, // TODO
+		OperationId: 1,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
 		Operation: types.CRDTAddBlock[types.BlockType]{
@@ -400,7 +383,7 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 
 	crdtOp1 := types.CRDTOperation{
 		Origin:      node1.GetAddr(),
-		OperationId: 0, // TODO
+		OperationId: 1,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
 		Operation: types.CRDTAddBlock[types.BlockType]{
@@ -417,7 +400,7 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 
 	crdtOp2 := types.CRDTOperation{
 		Origin:      node3.GetAddr(),
-		OperationId: 0, // TODO
+		OperationId: 2,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
 		Operation: types.CRDTAddBlock[types.BlockType]{
@@ -485,7 +468,3 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 	require.Equal(t, sorted1[1].Origin, sorted2[1].Origin)
 	require.Equal(t, sorted1[1].Origin, sorted3[1].Origin)
 }
-
-// TODO ISSUE: what if 2 nodes add a block with the same ID ?
-// TODO how to test content of CRDTOperation ? It is an interface
-// TODO OpID starts from 0 or 1 ?
