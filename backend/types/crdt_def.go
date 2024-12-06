@@ -11,14 +11,14 @@ type CRDTOp interface{}
 
 type TextAlignment string
 type HeadingLevel int
-type TextStyle string
-
-const (
-	Bold          TextStyle = "bold"
-	Italic        TextStyle = "italic"
-	Underline     TextStyle = "underline"
-	Strikethrough TextStyle = "strikethrough"
-)
+type TextStyle struct {
+	Bold            bool
+	Italic          bool
+	Underline       bool
+	Strikethrough   bool
+	TextColor       string
+	BackgroundColor string
+}
 
 const (
 	H1 HeadingLevel = 1
@@ -44,7 +44,7 @@ type TableContent struct{}
 type StyledText struct {
 	InlineContent
 	Text            string
-	Styles          []TextStyle
+	Styles          TextStyle
 	Color           string
 	BackgroundColor string
 }
