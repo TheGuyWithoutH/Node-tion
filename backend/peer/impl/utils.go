@@ -712,16 +712,16 @@ func (n *node) UpdateEditor(ops []types.CRDTOperation) error {
 			n.editor.ed[op.DocumentId] = make(map[string][]types.CRDTOperation)
 		}
 
-		if _, exists := n.editor.ed[op.DocumentId][op.Operation.BlockID]; !exists {
-			n.editor.ed[op.DocumentId][op.Operation.BlockID] = make([]types.CRDTOperation, 0)
+		if _, exists := n.editor.ed[op.DocumentId][op.BlockId]; !exists {
+			n.editor.ed[op.DocumentId][op.BlockId] = make([]types.CRDTOperation, 0)
 		}
-		n.editor.ed[op.DocumentId][op.Operation.BlockID] = append(n.editor.ed[op.DocumentId][op.Operation.BlockID], op)
+		n.editor.ed[op.DocumentId][op.BlockId] = append(n.editor.ed[op.DocumentId][op.BlockId], op)
 	}
 	return nil
 }
 
-// GetDocument returns the document of the CRDT
-func (n *node) GetDocument(docID string) map[string][]types.CRDTOperation {
+// GetDocumentOps returns the document of the CRDT
+func (n *node) GetDocumentOps(docID string) map[string][]types.CRDTOperation {
 	n.editor.mu.Lock()
 	defer n.editor.mu.Unlock()
 
@@ -733,8 +733,8 @@ func (n *node) GetDocument(docID string) map[string][]types.CRDTOperation {
 	return doc
 }
 
-// GetBlock returns the block of the CRDT
-func (n *node) GetBlock(docID, blockID string) []types.CRDTOperation {
+// GetBlockOps returns the block of the CRDT
+func (n *node) GetBlockOps(docID, blockID string) []types.CRDTOperation {
 	n.editor.mu.Lock()
 	defer n.editor.mu.Unlock()
 

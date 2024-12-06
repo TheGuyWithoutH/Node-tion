@@ -7,9 +7,7 @@ type CRDTOperationsMessage struct {
 	Operations []CRDTOperation
 }
 
-type CRDTOp struct {
-	BlockID string
-}
+type CRDTOp interface{}
 
 type TextAlignment string
 type HeadingLevel int
@@ -114,6 +112,7 @@ type CRDTOperation struct {
 	Origin      string
 	OperationId uint64 // TODO ask what it is
 	DocumentId  string
+	BlockId     string
 	Operation   CRDTOp
 }
 

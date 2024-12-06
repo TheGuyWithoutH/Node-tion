@@ -10,11 +10,11 @@ type CRDT interface {
 	// UpdateEditor updates the editor of the CRDT.
 	UpdateEditor([]types.CRDTOperation) error
 
-	// GetDocument returns the document of the CRDT.
-	GetDocument(docID string) map[string][]types.CRDTOperation
+	// GetDocumentOps returns the document of the CRDT.
+	GetDocumentOps(docID string) map[string][]types.CRDTOperation
 
-	// GetBlock returns the block of the CRDT.
-	GetBlock(docID, blockID string) []types.CRDTOperation
+	// GetBlockOps returns the block of the CRDT.
+	GetBlockOps(docID, blockID string) []types.CRDTOperation
 
 	// ApplyOperation applies a CRDT operation to the document.
 	ApplyOperation(op types.CRDTOperation) error
