@@ -109,6 +109,7 @@ type DefaultBlockProps struct {
 // CRDT Operation Types
 
 type CRDTOperation struct {
+	Type        string
 	Origin      string
 	OperationId uint64 // Operation number, corresponding to the last operation + 1 at each new operation
 	DocumentId  string
@@ -118,7 +119,6 @@ type CRDTOperation struct {
 
 type CRDTAddBlock[T BlockType] struct {
 	CRDTOp
-	OpID        string
 	AfterBlock  string
 	ParentBlock string
 	Props       T
@@ -126,13 +126,11 @@ type CRDTAddBlock[T BlockType] struct {
 
 type CRDTRemoveBlock struct {
 	CRDTOp
-	OpID         string
 	RemovedBlock string
 }
 
 type CRDTUpdateBlock[T BlockType] struct {
 	CRDTOp
-	OpID         string
 	UpdatedBlock string
 	AfterBlock   string
 	ParentBlock  string
@@ -141,20 +139,17 @@ type CRDTUpdateBlock[T BlockType] struct {
 
 type CRDTInsertChar struct {
 	CRDTOp
-	OpID      string
 	AfterID   string
 	Character string
 }
 
 type CRDTDeleteChar struct {
 	CRDTOp
-	OpID      string
 	RemovedID string
 }
 
 type CRDTAddMark struct {
 	CRDTOp
-	OpID     string
 	Start    struct{}
 	End      struct{}
 	MarkType TextStyle
@@ -163,7 +158,6 @@ type CRDTAddMark struct {
 
 type CRDTRemoveMark struct {
 	CRDTOp
-	OpID     string
 	Start    struct{}
 	End      struct{}
 	MarkType TextStyle
