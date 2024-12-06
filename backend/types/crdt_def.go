@@ -110,7 +110,7 @@ type DefaultBlockProps struct {
 
 type CRDTOperation struct {
 	Origin      string
-	OperationId uint64 // TODO ask what it is
+	OperationId uint64 // Operation number, corresponding to the last operation + 1 at each new operation
 	DocumentId  string
 	BlockId     string
 	Operation   CRDTOp
