@@ -742,3 +742,27 @@ func (n *node) GetBlockOps(docID, blockID string) []types.CRDTOperation {
 	copy(block, n.editor.ed[docID][blockID])
 	return block
 }
+
+type CRDTState struct {
+	sync.Mutex
+	state map[string]uint64
+}
+
+func (c *CRDTState) GetState(docID string) uint64 {
+	c.Lock()
+	defer c.Unlock()
+
+	opId, exists := c.state[docID]
+	if !exists {
+		return 0
+	}
+	return opId
+
+}
+
+func (c *CRDTState) SetState(docID string, state uint64) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.state[docID] = state
+}

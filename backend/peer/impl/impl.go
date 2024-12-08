@@ -6,11 +6,12 @@ import (
 	"Node-tion/backend/types"
 	"context"
 	"errors"
-	"github.com/rs/zerolog"
-	"golang.org/x/xerrors"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog"
+	"golang.org/x/xerrors"
 )
 
 var logIO = zerolog.ConsoleWriter{
@@ -138,7 +139,6 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 // - implements peer.Peer
 type node struct {
 	peer.Peer
-	// You probably want to keep the peer.Configuration on this struct:
 	conf               peer.Configuration
 	mu                 sync.Mutex
 	ctx                context.Context    // for managing the start/stop
@@ -159,6 +159,7 @@ type node struct {
 	proposer           *Proposer
 	tlcMessages        *TLC
 	editor             *Editor
+	crdtState          *CRDTState
 }
 
 // Start implements peer.Service
