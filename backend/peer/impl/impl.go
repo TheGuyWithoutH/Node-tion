@@ -19,11 +19,6 @@ var logIO = zerolog.ConsoleWriter{
 	TimeFormat: time.RFC3339,
 }
 
-// Special function for typesript bindings
-func NewNode(conf peer.Configuration) *node {
-	return NewPeer(conf).(*node)
-}
-
 // NewPeer creates a new peer. You can change the content and location of this
 // function, but you MUST NOT change its signature and package location.
 func NewPeer(conf peer.Configuration) peer.Peer {
@@ -140,7 +135,7 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		crdtState:          &crdtState,
 	}
 	// add itself to the routing table
-	node.SetRoutingEntry(conf.Socket.GetAddress(), conf.Socket.GetAddress())
+
 	return &node
 }
 
@@ -197,6 +192,8 @@ func (n *node) Start() error {
 	n.conf.MessageRegistry.RegisterMessageCallback(&types.TLCMessage{}, n.TLCMessageCallback)
 
 	n.conf.MessageRegistry.RegisterMessageCallback(&types.CRDTOperationsMessage{}, n.CRDTOperationsMessageCallback)
+
+	n.SetRoutingEntry(n.conf.Socket.GetAddress(), n.conf.Socket.GetAddress())
 
 	// use non-blocking GoRoutine to listen on incoming messages
 	go n.Listen()
