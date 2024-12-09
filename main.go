@@ -13,6 +13,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 
 	"Node-tion/backend/peer/impl"
+	"Node-tion/backend/types"
 )
 
 //go:embed all:frontend/dist
@@ -49,14 +50,6 @@ func main() {
 
 	node := peerFactory(conf)
 
-	// Create an instance of the app structure
-	// app := application.New(application.Options{
-	// 	Services: []application.Service{
-	// 		application.NewService(node),
-	// 	},
-
-	// })
-
 	app := &App{}
 
 	// Create application with options
@@ -89,6 +82,26 @@ func main() {
 		Bind: []interface{}{
 			app,
 			node,
+			//These are redundant but necessary for the bindings for type infratsructure compatibility
+			&types.CRDTOperationsMessage{},
+			&types.CRDTOperation{},
+			&types.CRDTRemoveBlock{},
+			&types.CRDTAddBlock[types.BulletedListBlock]{},
+			&types.CRDTAddBlock[types.NumberedListBlock]{},
+			&types.CRDTAddBlock[types.ParagraphBlock]{},
+			&types.CRDTAddBlock[types.HeadingBlock]{},
+			&types.CRDTAddBlock[types.ImageBlock]{},
+			&types.CRDTAddBlock[types.TableBlock]{},
+			&types.CRDTUpdateBlock[types.BulletedListBlock]{},
+			&types.CRDTUpdateBlock[types.NumberedListBlock]{},
+			&types.CRDTUpdateBlock[types.ParagraphBlock]{},
+			&types.CRDTUpdateBlock[types.HeadingBlock]{},
+			&types.CRDTUpdateBlock[types.ImageBlock]{},
+			&types.CRDTUpdateBlock[types.TableBlock]{},
+			&types.CRDTInsertChar{},
+			&types.CRDTDeleteChar{},
+			&types.CRDTAddMark{},
+			&types.CRDTRemoveMark{},
 		},
 		// Windows platform specific options
 		Windows: &windows.Options{
