@@ -18,6 +18,12 @@ type CRDT interface {
 
 	// ApplyOperation applies a CRDT operation to the document.
 	ApplyOperation(op types.CRDTOperation) error
+
+	// SaveTransactions saves a list of CRDT operations.
+	SaveTransactions(transactions types.CRDTOperationsMessage) error
+
+	// GetCRDTState returns the CRDT state of the document.
+	GetCRDTState(docID string) uint64
 }
 
 // Editor tells, for a given document referenced by a key, a bag of blocks

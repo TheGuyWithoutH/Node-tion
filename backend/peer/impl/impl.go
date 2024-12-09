@@ -109,6 +109,10 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		ed: make(peer.Editor),
 	}
 
+	crdtState := CRDTState{
+		state: make(map[string]uint64),
+	}
+
 	node := node{
 		conf:               conf,
 		mu:                 sync.Mutex{},
@@ -128,6 +132,7 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		proposer:           &proposer,
 		tlcMessages:        &tlcMessages,
 		editor:             &editor,
+		crdtState:          &crdtState,
 	}
 	// add itself to the routing table
 	node.SetRoutingEntry(conf.Socket.GetAddress(), conf.Socket.GetAddress())

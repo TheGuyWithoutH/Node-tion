@@ -703,6 +703,7 @@ func (n *node) GetEditor() peer.Editor {
 
 // UpdateEditor updates the editor of the CRDT
 func (n *node) UpdateEditor(ops []types.CRDTOperation) error {
+	n.logCRDT.Debug().Msgf("UpdateEditor: %d operations", len(ops))
 	n.editor.mu.Lock()
 	defer n.editor.mu.Unlock()
 
@@ -765,4 +766,8 @@ func (c *CRDTState) SetState(docID string, state uint64) {
 	defer c.Unlock()
 
 	c.state[docID] = state
+}
+
+func (n *node) GetCRDTState(docID string) uint64 {
+	return n.crdtState.GetState(docID)
 }
