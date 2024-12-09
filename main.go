@@ -1,7 +1,7 @@
 package main
 
 import (
-	"Node-tion/backend/types"
+	"Node-tion/backend/peer"
 	"embed"
 	"log"
 
@@ -11,6 +11,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"Node-tion/backend/peer/impl"
 )
 
 //go:embed all:frontend/dist
@@ -20,9 +23,24 @@ var assets embed.FS
 var icon []byte
 
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
 
+	var peerFactory = impl.NewNode
+
+	conf := peer.Configuration{
+		// TODO: This must be filled in with specific values. We can inspire from the gui.go from the homeworks
+	}
+
+	node := peerFactory(conf)
+
+	// TODO: add options
+	// Create an instance of the app structure
+	app := application.New(application.Options{
+		Services: []application.Service{
+			application.NewService(node),
+		},
+	})
+
+	// TODO: run app
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:             "Node-tion",
@@ -49,36 +67,9 @@ func main() {
 		OnBeforeClose:    app.beforeClose,
 		OnShutdown:       app.shutdown,
 		WindowStartState: options.Normal,
+
 		Bind: []interface{}{
 			app,
-			&types.CRDTOperationsMessage{},
-			&types.CRDTOp{},
-			&types.StyledText{},
-			&types.Link{},
-			&types.ParagraphBlock{},
-			&types.TableContent{},
-			&types.HeadingBlock{},
-			&types.BulletedListBlock{},
-			&types.NumberedListBlock{},
-			&types.ImageBlock{},
-			&types.DefaultBlockProps{},
-			&types.CRDTAddBlock[types.ParagraphBlock]{},
-			&types.CRDTAddBlock[types.HeadingBlock]{},
-			&types.CRDTAddBlock[types.BulletedListBlock]{},
-			&types.CRDTAddBlock[types.NumberedListBlock]{},
-			&types.CRDTAddBlock[types.ImageBlock]{},
-			&types.CRDTAddBlock[types.TableBlock]{},
-			&types.CRDTRemoveBlock{},
-			&types.CRDTUpdateBlock[types.ParagraphBlock]{},
-			&types.CRDTUpdateBlock[types.HeadingBlock]{},
-			&types.CRDTUpdateBlock[types.BulletedListBlock]{},
-			&types.CRDTUpdateBlock[types.NumberedListBlock]{},
-			&types.CRDTUpdateBlock[types.ImageBlock]{},
-			&types.CRDTUpdateBlock[types.TableBlock]{},
-			&types.CRDTInsertChar{},
-			&types.CRDTDeleteChar{},
-			&types.CRDTAddMark{},
-			&types.CRDTRemoveMark{},
 		},
 		// Windows platform specific options
 		Windows: &windows.Options{

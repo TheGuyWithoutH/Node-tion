@@ -19,6 +19,11 @@ var logIO = zerolog.ConsoleWriter{
 	TimeFormat: time.RFC3339,
 }
 
+// Special function for typesript bindings
+func NewNode(conf peer.Configuration) *node {
+	return NewPeer(conf).(*node)
+}
+
 // NewPeer creates a new peer. You can change the content and location of this
 // function, but you MUST NOT change its signature and package location.
 func NewPeer(conf peer.Configuration) peer.Peer {
