@@ -703,6 +703,7 @@ func (n *node) GetEditor() peer.Editor {
 
 // UpdateEditor updates the editor of the CRDT
 func (n *node) UpdateEditor(ops []types.CRDTOperation) error {
+	n.logCRDT.Debug().Msgf("UpdateEditor: %d operations", len(ops))
 	n.editor.mu.Lock()
 	defer n.editor.mu.Unlock()
 
@@ -741,4 +742,32 @@ func (n *node) GetBlockOps(docID, blockID string) []types.CRDTOperation {
 	block := make([]types.CRDTOperation, len(n.editor.ed[docID][blockID]))
 	copy(block, n.editor.ed[docID][blockID])
 	return block
+}
+
+type CRDTState struct {
+	sync.Mutex
+	state map[string]uint64
+}
+
+func (c *CRDTState) GetState(docID string) uint64 {
+	c.Lock()
+	defer c.Unlock()
+
+	opId, exists := c.state[docID]
+	if !exists {
+		return 0
+	}
+	return opId
+
+}
+
+func (c *CRDTState) SetState(docID string, state uint64) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.state[docID] = state
+}
+
+func (n *node) GetCRDTState(docID string) uint64 {
+	return n.crdtState.GetState(docID)
 }

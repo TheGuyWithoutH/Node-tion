@@ -11,14 +11,14 @@ type CRDTOp interface{}
 
 type TextAlignment string
 type HeadingLevel int
-type TextStyle string
-
-const (
-	Bold          TextStyle = "bold"
-	Italic        TextStyle = "italic"
-	Underline     TextStyle = "underline"
-	Strikethrough TextStyle = "strikethrough"
-)
+type TextStyle struct {
+	Bold            bool
+	Italic          bool
+	Underline       bool
+	Strikethrough   bool
+	TextColor       string
+	BackgroundColor string
+}
 
 const (
 	H1 HeadingLevel = 1
@@ -44,7 +44,7 @@ type TableContent struct{}
 type StyledText struct {
 	InlineContent
 	Text            string
-	Styles          []TextStyle
+	Styles          TextStyle
 	Color           string
 	BackgroundColor string
 }
@@ -109,7 +109,9 @@ type DefaultBlockProps struct {
 // CRDT Operation Types
 
 type CRDTOperation struct {
-	// Operation.OpID == OperationId@Origin
+	Type        string
+	BlockType   string
+
 	Origin      string
 	OperationId uint64 // Starts from 1
 	DocumentId  string // OperationId@Origin that creates the document
@@ -119,7 +121,6 @@ type CRDTOperation struct {
 
 type CRDTAddBlock[T BlockType] struct {
 	CRDTOp
-	OpID        string
 	AfterBlock  string
 	ParentBlock string
 	Props       T
@@ -127,13 +128,11 @@ type CRDTAddBlock[T BlockType] struct {
 
 type CRDTRemoveBlock struct {
 	CRDTOp
-	OpID         string
 	RemovedBlock string
 }
 
 type CRDTUpdateBlock[T BlockType] struct {
 	CRDTOp
-	OpID         string
 	UpdatedBlock string
 	AfterBlock   string
 	ParentBlock  string
@@ -142,20 +141,17 @@ type CRDTUpdateBlock[T BlockType] struct {
 
 type CRDTInsertChar struct {
 	CRDTOp
-	OpID      string
 	AfterID   string
 	Character string
 }
 
 type CRDTDeleteChar struct {
 	CRDTOp
-	OpID      string
 	RemovedID string
 }
 
 type CRDTAddMark struct {
 	CRDTOp
-	OpID     string
 	Start    struct{}
 	End      struct{}
 	MarkType TextStyle
@@ -164,7 +160,6 @@ type CRDTAddMark struct {
 
 type CRDTRemoveMark struct {
 	CRDTOp
-	OpID     string
 	Start    struct{}
 	End      struct{}
 	MarkType TextStyle

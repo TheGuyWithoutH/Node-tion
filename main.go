@@ -1,7 +1,7 @@
 package main
 
 import (
-	"Node-tion/backend/types"
+	"Node-tion/backend/peer"
 	"embed"
 	"log"
 
@@ -11,6 +11,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+
+	"Node-tion/backend/peer/impl"
+	"Node-tion/backend/types"
 )
 
 //go:embed all:frontend/dist
@@ -20,8 +23,34 @@ var assets embed.FS
 var icon []byte
 
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+
+	var peerFactory = impl.NewPeer
+
+	conf := peer.Configuration{
+		Socket:              nil,
+		MessageRegistry:     nil,
+		AntiEntropyInterval: 0,
+		HeartbeatInterval:   0,
+		AckTimeout:          3,
+		ContinueMongering:   0.5,
+		ChunkSize:           8192,
+		BackoffDataRequest: peer.Backoff{
+			Initial: 2,
+			Factor:  2,
+			Retry:   5,
+		},
+		Storage:    nil,
+		TotalPeers: 0,
+		PaxosThreshold: func(u uint) int {
+			return int(u/2 + 1)
+		},
+		PaxosID:            0,
+		PaxosProposerRetry: 0,
+	}
+
+	node := peerFactory(conf)
+
+	app := &App{}
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -49,30 +78,24 @@ func main() {
 		OnBeforeClose:    app.beforeClose,
 		OnShutdown:       app.shutdown,
 		WindowStartState: options.Normal,
+
 		Bind: []interface{}{
 			app,
+			node,
+			//These are redundant but necessary for the bindings for type infratsructure compatibility
 			&types.CRDTOperationsMessage{},
-			&types.CRDTOp{},
-			&types.StyledText{},
-			&types.Link{},
-			&types.ParagraphBlock{},
-			&types.TableContent{},
-			&types.HeadingBlock{},
-			&types.BulletedListBlock{},
-			&types.NumberedListBlock{},
-			&types.ImageBlock{},
-			&types.DefaultBlockProps{},
-			&types.CRDTAddBlock[types.ParagraphBlock]{},
-			&types.CRDTAddBlock[types.HeadingBlock]{},
+			&types.CRDTOperation{},
+			&types.CRDTRemoveBlock{},
 			&types.CRDTAddBlock[types.BulletedListBlock]{},
 			&types.CRDTAddBlock[types.NumberedListBlock]{},
+			&types.CRDTAddBlock[types.ParagraphBlock]{},
+			&types.CRDTAddBlock[types.HeadingBlock]{},
 			&types.CRDTAddBlock[types.ImageBlock]{},
 			&types.CRDTAddBlock[types.TableBlock]{},
-			&types.CRDTRemoveBlock{},
-			&types.CRDTUpdateBlock[types.ParagraphBlock]{},
-			&types.CRDTUpdateBlock[types.HeadingBlock]{},
 			&types.CRDTUpdateBlock[types.BulletedListBlock]{},
 			&types.CRDTUpdateBlock[types.NumberedListBlock]{},
+			&types.CRDTUpdateBlock[types.ParagraphBlock]{},
+			&types.CRDTUpdateBlock[types.HeadingBlock]{},
 			&types.CRDTUpdateBlock[types.ImageBlock]{},
 			&types.CRDTUpdateBlock[types.TableBlock]{},
 			&types.CRDTInsertChar{},

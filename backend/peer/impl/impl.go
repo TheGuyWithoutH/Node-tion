@@ -6,11 +6,12 @@ import (
 	"Node-tion/backend/types"
 	"context"
 	"errors"
-	"github.com/rs/zerolog"
-	"golang.org/x/xerrors"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog"
+	"golang.org/x/xerrors"
 )
 
 var logIO = zerolog.ConsoleWriter{
@@ -108,6 +109,10 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		ed: make(peer.Editor),
 	}
 
+	crdtState := CRDTState{
+		state: make(map[string]uint64),
+	}
+
 	node := node{
 		conf:               conf,
 		mu:                 sync.Mutex{},
@@ -127,9 +132,10 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		proposer:           &proposer,
 		tlcMessages:        &tlcMessages,
 		editor:             &editor,
+		crdtState:          &crdtState,
 	}
 	// add itself to the routing table
-	node.SetRoutingEntry(conf.Socket.GetAddress(), conf.Socket.GetAddress())
+
 	return &node
 }
 
@@ -138,7 +144,6 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 // - implements peer.Peer
 type node struct {
 	peer.Peer
-	// You probably want to keep the peer.Configuration on this struct:
 	conf               peer.Configuration
 	mu                 sync.Mutex
 	ctx                context.Context    // for managing the start/stop
@@ -159,6 +164,7 @@ type node struct {
 	proposer           *Proposer
 	tlcMessages        *TLC
 	editor             *Editor
+	crdtState          *CRDTState
 }
 
 // Start implements peer.Service
@@ -186,6 +192,8 @@ func (n *node) Start() error {
 	n.conf.MessageRegistry.RegisterMessageCallback(&types.TLCMessage{}, n.TLCMessageCallback)
 
 	n.conf.MessageRegistry.RegisterMessageCallback(&types.CRDTOperationsMessage{}, n.CRDTOperationsMessageCallback)
+
+	n.SetRoutingEntry(n.conf.Socket.GetAddress(), n.conf.Socket.GetAddress())
 
 	// use non-blocking GoRoutine to listen on incoming messages
 	go n.Listen()
