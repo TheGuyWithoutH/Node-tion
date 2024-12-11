@@ -7,7 +7,11 @@ type CRDTOperationsMessage struct {
 	Operations []CRDTOperation
 }
 
-type CRDTOp interface{}
+// CRDTOp is an interface that defines the methods that a CRDT operation must implement.
+type CRDTOp interface {
+	NewEmpty() CRDTOp
+	Name() string
+}
 
 type TextAlignment string
 type HeadingLevel int
@@ -34,13 +38,25 @@ const (
 	Justify TextAlignment = "justify"
 )
 
-type BlockType interface{}
-type InlineContent interface{}
+// BlockType is an interface that defines operations on blocks.
+type BlockType interface {
+	NewEmpty() BlockType
+	Name() string
+}
+
+// InlineContent is an interface that defines operations on inline content.
+type InlineContent interface {
+	NewEmpty() InlineContent
+	Name() string
+}
+
+// TableContent is a struct that defines the content of a table.
 type TableContent struct{}
 
 // -------------------------------------------------------------------
 // Data Structures
 
+// StyledText implements InlineContent.
 type StyledText struct {
 	InlineContent
 	Text            string
@@ -49,12 +65,30 @@ type StyledText struct {
 	BackgroundColor string
 }
 
+func (s StyledText) NewEmpty() InlineContent {
+	return StyledText{}
+}
+
+func (s StyledText) Name() string {
+	return "StyledText"
+}
+
+// Link implements InlineContent.
 type Link struct {
 	InlineContent
 	Content []StyledText
 	Href    string
 }
 
+func (l Link) NewEmpty() InlineContent {
+	return Link{}
+}
+
+func (l Link) Name() string {
+	return "Link"
+}
+
+// ParagraphBlock implements BlockType.
 type ParagraphBlock struct {
 	BlockType
 	Default  DefaultBlockProps
@@ -62,6 +96,16 @@ type ParagraphBlock struct {
 	Content  []InlineContent
 	Children []BlockType
 }
+
+func (b ParagraphBlock) NewEmpty() BlockType {
+	return ParagraphBlock{}
+}
+
+func (b ParagraphBlock) Name() string {
+	return "ParagraphBlock"
+}
+
+// HeadingBlock implements BlockType.
 type HeadingBlock struct {
 	BlockType
 	Default  DefaultBlockProps
@@ -70,6 +114,16 @@ type HeadingBlock struct {
 	Content  []InlineContent
 	Children []BlockType
 }
+
+func (b HeadingBlock) NewEmpty() BlockType {
+	return HeadingBlock{}
+}
+
+func (b HeadingBlock) Name() string {
+	return "HeadingBlock"
+}
+
+// BulletedListBlock implements BlockType.
 type BulletedListBlock struct {
 	BlockType
 	Default  DefaultBlockProps
@@ -77,6 +131,16 @@ type BulletedListBlock struct {
 	Content  []InlineContent
 	Children []BlockType
 }
+
+func (b BulletedListBlock) NewEmpty() BlockType {
+	return BulletedListBlock{}
+}
+
+func (b BulletedListBlock) Name() string {
+	return "BulletedListBlock"
+}
+
+// NumberedListBlock implements BlockType.
 type NumberedListBlock struct {
 	BlockType
 	Default  DefaultBlockProps
@@ -84,6 +148,15 @@ type NumberedListBlock struct {
 	Content  []InlineContent
 	Children []BlockType
 }
+
+func (b NumberedListBlock) NewEmpty() BlockType {
+	return NumberedListBlock{}
+}
+
+func (b NumberedListBlock) Name() string {
+	return "NumberedListBlock"
+}
+
 type ImageBlock struct {
 	Default      DefaultBlockProps
 	Id           string
@@ -92,6 +165,7 @@ type ImageBlock struct {
 	PreviewWidth uint
 	Children     []BlockType
 }
+
 type TableBlock struct {
 	Default  DefaultBlockProps
 	Id       string
@@ -109,8 +183,8 @@ type DefaultBlockProps struct {
 // CRDT Operation Types
 
 type CRDTOperation struct {
-	Type        string
-	BlockType   string
+	Type      string
+	BlockType string
 
 	Origin      string
 	OperationId uint64 // Starts from 1
@@ -119,6 +193,7 @@ type CRDTOperation struct {
 	Operation   CRDTOp
 }
 
+// CRDTAddBlock implements CRDTOp.
 type CRDTAddBlock[T BlockType] struct {
 	CRDTOp
 	AfterBlock  string
@@ -126,11 +201,29 @@ type CRDTAddBlock[T BlockType] struct {
 	Props       T
 }
 
+func (op CRDTAddBlock[BlockType]) NewEmpty() CRDTOp {
+	return CRDTAddBlock[BlockType]{}
+}
+
+func (op CRDTAddBlock[BlockType]) Name() string {
+	return "CRDTAddBlock"
+}
+
+// CRDTRemoveBlock implements CRDTOp.
 type CRDTRemoveBlock struct {
 	CRDTOp
 	RemovedBlock string
 }
 
+func (op CRDTRemoveBlock) NewEmpty() CRDTOp {
+	return CRDTRemoveBlock{}
+}
+
+func (op CRDTRemoveBlock) Name() string {
+	return "CRDTRemoveBlock"
+}
+
+// CRDTUpdateBlock implements CRDTOp.
 type CRDTUpdateBlock[T BlockType] struct {
 	CRDTOp
 	UpdatedBlock string
@@ -139,17 +232,44 @@ type CRDTUpdateBlock[T BlockType] struct {
 	Props        T
 }
 
+func (op CRDTUpdateBlock[BlockType]) NewEmpty() CRDTOp {
+	return CRDTUpdateBlock[BlockType]{}
+}
+
+func (op CRDTUpdateBlock[BlockType]) Name() string {
+	return "CRDTUpdateBlock"
+}
+
+// CRDTInsertChar implements CRDTOp.
 type CRDTInsertChar struct {
 	CRDTOp
 	AfterID   string
 	Character string
 }
 
+func (op CRDTInsertChar) NewEmpty() CRDTOp {
+	return CRDTInsertChar{}
+}
+
+func (op CRDTInsertChar) Name() string {
+	return "CRDTInsertChar"
+}
+
+// CRDTDeleteChar implements CRDTOp.
 type CRDTDeleteChar struct {
 	CRDTOp
 	RemovedID string
 }
 
+func (op CRDTDeleteChar) NewEmpty() CRDTOp {
+	return CRDTDeleteChar{}
+}
+
+func (op CRDTDeleteChar) Name() string {
+	return "CRDTDeleteChar"
+}
+
+// CRDTAddMark implements CRDTOp.
 type CRDTAddMark struct {
 	CRDTOp
 	Start    struct{}
@@ -158,9 +278,26 @@ type CRDTAddMark struct {
 	Options  struct{}
 }
 
+func (op CRDTAddMark) NewEmpty() CRDTOp {
+	return CRDTAddMark{}
+}
+
+func (op CRDTAddMark) Name() string {
+	return "CRDTAddMark"
+}
+
+// CRDTRemoveMark implements CRDTOp.
 type CRDTRemoveMark struct {
 	CRDTOp
 	Start    struct{}
 	End      struct{}
 	MarkType TextStyle
+}
+
+func (op CRDTRemoveMark) NewEmpty() CRDTOp {
+	return CRDTRemoveMark{}
+}
+
+func (op CRDTRemoveMark) Name() string {
+	return "CRDTRemoveMark"
 }

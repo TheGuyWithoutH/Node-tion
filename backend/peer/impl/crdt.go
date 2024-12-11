@@ -83,3 +83,7 @@ func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error 
 	// Broadcast the operations to other nodes
 	return n.Broadcast(msg)
 }
+
+func (n *node) CompileDocument(docID string) (string, error) {
+	return "", nil
+}

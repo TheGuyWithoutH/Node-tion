@@ -27,6 +27,9 @@ type CRDT interface {
 
 	// GetCRDTState returns the CRDT state of the document.
 	GetCRDTState(docID string) uint64
+
+	// CompileDocument compiles the document from the CRDT operations.
+	CompileDocument(docID string) (string, error)
 }
 
 // Editor tells, for a given document referenced by a key, a bag of blocks
