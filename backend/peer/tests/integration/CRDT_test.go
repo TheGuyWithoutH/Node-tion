@@ -266,24 +266,23 @@ func generateStringOps(addr, docID, str string) []types.CRDTOperation {
 
 	ops := []types.CRDTOperation{crdtOp}
 
-	for i, char := range str {
-		blockID1 := fmt.Sprintf("%d@%s", i+2, addr)
+	prevOpID := fmt.Sprintf("%d@%s", crdtOp.OperationId, crdtOp.Origin)
 
+	for i, char := range str {
 		crdtOp := types.CRDTOperation{
 			Type:        types.CRDTInsertChar{}.Name(),
 			BlockType:   types.ParagraphBlock{}.Name(),
 			Origin:      addr,
 			OperationId: uint64(i + 2),
 			DocumentId:  docID,
-			BlockId:     blockID1,
+			BlockId:     blockID,
 			Operation: types.CRDTInsertChar{
-				AfterID:   blockID,
+				AfterID:   prevOpID,
 				Character: string(char),
 			},
 		}
-
-		blockID = blockID1
-
+		prevOpID = fmt.Sprintf("%d@%s", crdtOp.OperationId, crdtOp.Origin)
+		
 		ops = append(ops, crdtOp)
 	}
 	return ops
