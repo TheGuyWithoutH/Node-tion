@@ -744,6 +744,65 @@ func (n *node) GetBlockOps(docID, blockID string) []types.CRDTOperation {
 	return block
 }
 
+// DocTimestampMap is the latest timestamp of the document saved in the directory
+// and the documents saved in the directory.
+type DocTimestampMap struct {
+	mu              sync.Mutex
+	newestTimestamp map[string]int64
+	docSaved        map[string][]string // docID -> [docT1, docT2, ...]
+}
+
+// GetNewestTimestamp returns the newest timestamp of the document.
+func (dtm *DocTimestampMap) GetNewestTimestamp(docID string) int64 {
+	dtm.mu.Lock()
+	defer dtm.mu.Unlock()
+
+	if _, exists := dtm.newestTimestamp[docID]; !exists {
+		return 0
+	}
+	return dtm.newestTimestamp[docID]
+}
+
+// SetNewestTimestamp sets the newest timestamp of the document.
+func (dtm *DocTimestampMap) SetNewestTimestamp(docID string, timestamp int64) {
+	dtm.mu.Lock()
+	defer dtm.mu.Unlock()
+	dtm.newestTimestamp[docID] = timestamp
+}
+
+// GetOldestDoc returns the oldest document of the document.
+func (dtm *DocTimestampMap) GetOldestDoc(docID string) string {
+	dtm.mu.Lock()
+	defer dtm.mu.Unlock()
+
+	if _, exists := dtm.docSaved[docID]; !exists {
+		return ""
+	}
+	return dtm.docSaved[docID][0]
+}
+
+// EnqueueDoc adds the newest document of the document.
+func (dtm *DocTimestampMap) EnqueueDoc(docID, doc string) {
+	dtm.mu.Lock()
+	defer dtm.mu.Unlock()
+	dtm.docSaved[docID] = append(dtm.docSaved[docID], doc)
+}
+
+// DequeueDoc removes the oldest document of the document.
+func (dtm *DocTimestampMap) DequeueDoc(docID string) {
+	dtm.mu.Lock()
+	defer dtm.mu.Unlock()
+	dtm.docSaved[docID] = dtm.docSaved[docID][1:]
+}
+
+// DocSavedLen returns the number of documents saved in the directory
+// with the corresponding document ID.
+func (dtm *DocTimestampMap) DocSavedLen(docID string) int {
+	dtm.mu.Lock()
+	defer dtm.mu.Unlock()
+	return len(dtm.docSaved[docID])
+}
+
 type CRDTState struct {
 	sync.Mutex
 	state map[string]uint64

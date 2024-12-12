@@ -19,6 +19,9 @@ type CRDT interface {
 	// ApplyOperation applies a CRDT operation to the document.
 	ApplyOperation(op types.CRDTOperation) error
 
+	// StoreDocument stores the document as a text file in a directory.
+	StoreDocument(docID, doc string) error
+
 	// SaveTransactions saves a list of CRDT operations.
 	SaveTransactions(transactions types.CRDTOperationsMessage) error
 

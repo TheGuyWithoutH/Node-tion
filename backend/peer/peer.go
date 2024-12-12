@@ -80,6 +80,21 @@ type Configuration struct {
 	// retries to send a prepare when it doesn't get enough promises or accepts.
 	// Default: 5s.
 	PaxosProposerRetry time.Duration
+
+	// DocTimestampThreshold is the amount of time that goes by before a new
+	// document's timestamp is considered greater than the existing one and
+	// should be saved.
+	// Default: 10s.
+	DocTimestampThreshold time.Duration
+
+	// DocQueueSize is the maximum number of documents that can be saved in the
+	// document queue for a document ID.
+	// Default: 10.
+	DocQueueSize int
+
+	// DocumentDir defines the directory where the documents are stored.
+	// Default: "documents".
+	DocumentDir string
 }
 
 // Backoff describes parameters for a backoff algorithm. The initial time must

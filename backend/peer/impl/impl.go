@@ -109,6 +109,12 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		ed: make(peer.Editor),
 	}
 
+	docTimestampMap := DocTimestampMap{
+		mu:              sync.Mutex{},
+		newestTimestamp: make(map[string]int64),
+		docSaved:        make(map[string][]string),
+  }
+
 	crdtState := CRDTState{
 		state: make(map[string]uint64),
 	}
@@ -132,6 +138,7 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		proposer:           &proposer,
 		tlcMessages:        &tlcMessages,
 		editor:             &editor,
+		docTimestampMap:    &docTimestampMap,
 		crdtState:          &crdtState,
 	}
 	// add itself to the routing table
@@ -164,6 +171,7 @@ type node struct {
 	proposer           *Proposer
 	tlcMessages        *TLC
 	editor             *Editor
+	docTimestampMap    *DocTimestampMap
 	crdtState          *CRDTState
 }
 

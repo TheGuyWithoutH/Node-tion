@@ -149,6 +149,10 @@ type configTemplate struct {
 	paxosThreshold     func(uint) int
 	paxosID            uint
 	paxosProposerRetry time.Duration
+
+	docTimestampThreshold time.Duration
+	docQueueSize          int
+	documentDir           string
 }
 
 func newConfigTemplate() configTemplate {
@@ -183,6 +187,10 @@ func newConfigTemplate() configTemplate {
 		},
 		paxosID:            0,
 		paxosProposerRetry: time.Second * 5,
+
+		docTimestampThreshold: time.Second * 10,
+		docQueueSize:          10,
+		documentDir:           "documents",
 	}
 }
 
@@ -292,6 +300,27 @@ func WithPaxosProposerRetry(d time.Duration) Option {
 	}
 }
 
+// WithDocTimestampThreshold sets a specific threshold for the document timestamp.
+func WithDocTimestampThreshold(d time.Duration) Option {
+	return func(ct *configTemplate) {
+		ct.docTimestampThreshold = d
+	}
+}
+
+// WithDocQueueSize sets a specific size for the document queue.
+func WithDocQueueSize(size int) Option {
+	return func(ct *configTemplate) {
+		ct.docQueueSize = size
+	}
+}
+
+// WithDocumentDir sets a specific directory for the documents.
+func WithDocumentDir(dir string) Option {
+	return func(ct *configTemplate) {
+		ct.documentDir = dir
+	}
+}
+
 // NewTestNode returns a new test node.
 func NewTestNode(t require.TestingT, f peer.Factory, trans transport.Transport,
 	addr string, opts ...Option) TestNode {
@@ -319,6 +348,9 @@ func NewTestNode(t require.TestingT, f peer.Factory, trans transport.Transport,
 	config.PaxosThreshold = template.paxosThreshold
 	config.PaxosID = template.paxosID
 	config.PaxosProposerRetry = template.paxosProposerRetry
+	config.DocTimestampThreshold = template.docTimestampThreshold
+	config.DocQueueSize = template.docQueueSize
+	config.DocumentDir = template.documentDir
 
 	node := f(config)
 
