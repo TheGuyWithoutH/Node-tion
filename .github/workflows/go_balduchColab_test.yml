@@ -34,6 +34,7 @@ jobs:
       - name: Run unit tests
         run: |
           set -euo pipefail
+          mkdir documents
           go test -json -timeout 5m -v -race -run Test_Editor ./backend/peer/tests/unit 2>&1 | tee ./${{ github.run_attempt }}/gotest-unit.log | gotestfmt
           go test -json -timeout 5m -v -race -run Test_Document ./backend/peer/tests/unit 2>&1 | tee ./${{ github.run_attempt }}/gotest-unit.log | gotestfmt
           go test -json -timeout 5m -v -race -run Test_SaveTransactions ./backend/peer/tests/unit 2>&1 | tee ./${{ github.run_attempt }}/gotest-unit.log | gotestfmt

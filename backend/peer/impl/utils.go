@@ -830,3 +830,7 @@ func (c *CRDTState) SetState(docID string, state uint64) {
 func (n *node) GetCRDTState(docID string) uint64 {
 	return n.crdtState.GetState(docID)
 }
+
+func (n *node) GetAddress() string {
+	return n.conf.Socket.GetAddress()
+}

@@ -12,9 +12,9 @@ export default function Home() {
         alt="Node-tion logo"
         className="w-32 h-32 no-select pointer-events-none"
       />
-      <h1 className="text-4xl font-bold py-4">Welcome to Node-tion</h1>
+      <h1 className="text-4xl font-bold py-4">Welcome to BalduchColab</h1>
       <p className="text-lg mt-4">
-        Node-tion is a note-taking app that allows you to create and manage
+        BalduchColab is a note-taking app that allows you to create and manage
         notes using blocks. The app is totally decentralized thanks to the
         Peritext protocol.
       </p>
@@ -39,7 +39,7 @@ export default function Home() {
         note.
       </p>
       <p className="text-sm mt-4 text-gray-500 mt-16">
-        This project has been developed by Yasmin, Emma, Emile and Ugo in the
+        This project has been developed by Yasmin Ben Rahhal, Emma Gaia Poggiolini, Emile Hreich and Ugo Balducci in the
         context of the course CS-438 at EPFL.
       </p>
     </div>

@@ -1,10 +1,8 @@
 import {
-  Calendar,
   ChevronsUpDown,
   Edit,
   Home,
-  Search,
-  Settings,
+  User2Icon,
 } from "lucide-react";
 
 import {
@@ -24,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarFallback} from "./ui/avatar";
 
 // Menu items.
 const items = [
@@ -39,20 +37,11 @@ const items = [
     icon: Edit,
   },
   {
-    title: "Calendar",
-    url: "#",
-    icon: Calendar,
+    title: "Add Peer",
+    url: "/add-peer",
+    icon: User2Icon,
   },
-  {
-    title: "Search",
-    url: "#",
-    icon: Search,
-  },
-  {
-    title: "Settings",
-    url: "#",
-    icon: Settings,
-  },
+  
 ];
 
 export function AppSidebar() {
@@ -65,8 +54,8 @@ export function AppSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton className="flex items-center h-100">
                   <Avatar>
-                    <AvatarImage src="https://github.com/shadcn.png" />
-                    <AvatarFallback>CN</AvatarFallback>
+                    {/* <AvatarImage src="https://github.com/shadcn.png" /> */}
+                    <AvatarFallback>BL</AvatarFallback>
                   </Avatar>
 
                   <div className="flex flex-col">
