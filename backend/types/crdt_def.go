@@ -9,8 +9,8 @@ type CRDTOperationsMessage struct {
 
 // CRDTOp is an interface that defines the methods that a CRDT operation must implement.
 type CRDTOp interface {
-	NewEmpty() CRDTOp
-	Name() string
+	// NewEmpty() CRDTOp
+	// Name() string
 }
 
 type TextAlignment string

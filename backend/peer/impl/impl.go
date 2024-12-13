@@ -23,10 +23,10 @@ var logIO = zerolog.ConsoleWriter{
 // function, but you MUST NOT change its signature and package location.
 func NewPeer(conf peer.Configuration) peer.Peer {
 	logger := zerolog.New(logIO).With().Timestamp().Logger()
-	logger = logger.Level(zerolog.NoLevel)
+	logger = logger.Level(zerolog.DebugLevel)
 
 	loggerPAXOS := zerolog.New(logIO).With().Timestamp().Logger()
-	loggerPAXOS = loggerPAXOS.Level(zerolog.NoLevel)
+	loggerPAXOS = loggerPAXOS.Level(zerolog.DebugLevel)
 
 	loggerCRDT := zerolog.New(logIO).With().Timestamp().Logger()
 	loggerCRDT = loggerCRDT.Level(zerolog.DebugLevel)
@@ -113,7 +113,7 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		mu:              sync.Mutex{},
 		newestTimestamp: make(map[string]int64),
 		docSaved:        make(map[string][]string),
-  }
+	}
 
 	crdtState := CRDTState{
 		state: make(map[string]uint64),

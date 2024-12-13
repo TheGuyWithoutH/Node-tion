@@ -26,9 +26,10 @@ func Test_Editor_Simple_Update(t *testing.T) {
 
 	// sending a CRDT message
 
-	crdt := types.CRDTAddBlock[types.BlockType]{
+	crdt := types.CRDTAddBlock{
 		AfterBlock:  "block0", // TODO
 		ParentBlock: "block0", // TODO
+		BlockType:   "paragraph",
 		Props: types.ParagraphBlock{
 			Default: types.DefaultBlockProps{
 				BackgroundColor: "white",
@@ -97,7 +98,7 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	// sending multiple CRDT messages
 
-	crdt1 := types.CRDTAddBlock[types.BlockType]{}
+	crdt1 := types.CRDTAddBlock{}
 
 	crdtOp1 := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
@@ -117,7 +118,7 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 		Operation:   crdt2,
 	}
 
-	crdt3 := types.CRDTAddBlock[types.BlockType]{}
+	crdt3 := types.CRDTAddBlock{}
 
 	crdtOp3 := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
@@ -182,7 +183,7 @@ func Test_Editor_Broadcast(t *testing.T) {
 				OperationId: 1,
 				DocumentId:  "doc1",
 				BlockId:     "block1",
-				Operation:   types.CRDTAddBlock[types.BlockType]{},
+				Operation:   types.CRDTAddBlock{},
 			}
 
 			crdtMsg := types.CRDTOperationsMessage{
@@ -323,7 +324,7 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 		OperationId: 1,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
-		Operation:   types.CRDTAddBlock[types.BlockType]{},
+		Operation:   types.CRDTAddBlock{},
 	}
 
 	crdtMsg := types.CRDTOperationsMessage{
@@ -391,7 +392,7 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 		OperationId: 1,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
-		Operation:   types.CRDTAddBlock[types.BlockType]{},
+		Operation:   types.CRDTAddBlock{},
 	}
 
 	crdtMsg1 := types.CRDTOperationsMessage{
@@ -406,7 +407,7 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 		OperationId: 2,
 		DocumentId:  "doc1",
 		BlockId:     "block1",
-		Operation:   types.CRDTAddBlock[types.BlockType]{},
+		Operation:   types.CRDTAddBlock{},
 	}
 
 	crdtMsg2 := types.CRDTOperationsMessage{

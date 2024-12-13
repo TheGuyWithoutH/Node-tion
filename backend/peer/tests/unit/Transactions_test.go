@@ -27,7 +27,7 @@ func Test_SaveTransactions_SingleOperation(t *testing.T) {
 		OperationId: 0, // Will be updated in SaveTransactions
 		DocumentId:  "doc1",
 		BlockId:     "block1",
-		Operation:   types.CRDTAddBlock[types.BlockType]{},
+		Operation:   types.CRDTAddBlock{},
 	}
 
 	crdtMsg := types.CRDTOperationsMessage{
@@ -69,7 +69,7 @@ func Test_SaveTransactions_MultipleOperations(t *testing.T) {
 			OperationId: 0,
 			DocumentId:  "doc1",
 			BlockId:     "block1",
-			Operation:   types.CRDTAddBlock[types.BlockType]{},
+			Operation:   types.CRDTAddBlock{},
 		},
 		{
 			Origin:      node.GetAddr(),
