@@ -103,7 +103,7 @@ func (l Link) Name() string {
 type ParagraphBlock struct {
 	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Content  []InlineContent
 	Children []BlockType
 }
@@ -120,7 +120,7 @@ func (b ParagraphBlock) Name() string {
 type HeadingBlock struct {
 	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Level    HeadingLevel
 	Content  []InlineContent
 	Children []BlockType
@@ -138,7 +138,7 @@ func (b HeadingBlock) Name() string {
 type BulletedListBlock struct {
 	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Content  []InlineContent
 	Children []BlockType
 }
@@ -155,7 +155,7 @@ func (b BulletedListBlock) Name() string {
 type NumberedListBlock struct {
 	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Content  []InlineContent
 	Children []BlockType
 }
@@ -170,16 +170,16 @@ func (b NumberedListBlock) Name() string {
 
 type ImageBlock struct {
 	Default      DefaultBlockProps
-	Id           string
+	ID           string
 	URL          string
 	Caption      string
-	PreviewWidth uint
+	PreviewWIDth uint
 	Children     []BlockType
 }
 
 type TableBlock struct {
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Content  TableContent
 	Children []BlockType
 }
@@ -198,9 +198,9 @@ type CRDTOperation struct {
 	BlockType string
 
 	Origin      string
-	OperationId uint64 // Starts from 1
-	DocumentId  string // OperationId@Origin that creates the document
-	BlockId     string // OperationId@Origin that creates the block
+	OperationID uint64 // Starts from 1
+	DocumentID  string // OperationID@Origin that creates the document
+	BlockID     string // OperationID@Origin that creates the block
 	Operation   CRDTOp
 }
 

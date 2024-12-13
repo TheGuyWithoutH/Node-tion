@@ -50,7 +50,7 @@ func (n *node) StoreDocument(docID, doc string) error {
 
 	n.logCRDT.Info().Msgf("storing document %s", newFilePath)
 	// Save the new document
-	if err := os.WriteFile(newFilePath, []byte(doc), 0644); err != nil {
+	if err := os.WriteFile(newFilePath, []byte(doc), 0600); err != nil {
 		return fmt.Errorf("failed to save document: %w", err)
 	}
 
@@ -62,15 +62,15 @@ func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error 
 	operations := transactions.Operations
 	n.logCRDT.Debug().Msgf("SaveTransactions: %d operations", len(operations))
 	for i, operation := range operations {
-		opDocId := operation.DocumentId
+		opDocID := operation.DocumentID
 
 		// Set origin of the operation
 		operation.Origin = n.conf.Socket.GetAddress()
 
-		// Update the CRDT state by incrementing document wide operation ids.
-		n.crdtState.SetState(opDocId, n.crdtState.GetState(opDocId)+1)
+		// Update the CRDT state by incrementing document wIDe operation IDs.
+		n.crdtState.SetState(opDocID, n.crdtState.GetState(opDocID)+1)
 
-		operation.OperationId = n.crdtState.GetState(opDocId)
+		operation.OperationID = n.crdtState.GetState(opDocID)
 		operations[i] = operation
 
 	}

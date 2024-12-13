@@ -25,7 +25,7 @@ func Test_CRDT_Integration_Pipeline(t *testing.T) {
 	node1 := z.NewTestNode(t, studentFac, transp, "127.0.0.1:0")
 	defer node1.Stop()
 
-	docID := "0@" + node1.GetAddr() // TODO
+	docID := "0@" + node1.GetAddr()
 	helloWorld := "Hello World!"
 	ops := generateStringOps(node1.GetAddr(), docID, helloWorld)
 
@@ -38,11 +38,11 @@ func Test_CRDT_Integration_Pipeline(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200)
 
-	// Validate the document is compiled correctly
+	// ValIDate the document is compiled correctly
 	_, err = node1.CompileDocument("0@" + node1.GetAddr())
 	require.NoError(t, err)
 
-	// TODO Yasmin's functions for checking the document json content
+	//  Yasmin's functions for checking the document json content
 }
 
 // Test_CRDT_Integration_Strong_Eventual_Consistency runs the CRDT pipeline with two nodes.
@@ -65,7 +65,7 @@ func Test_CRDT_Integration_Strong_Eventual_Consistency(t *testing.T) {
 
 	node1.AddPeer(node2.GetAddr())
 
-	docID := "0" // TODO
+	docID := "0"
 	ops1 := generateStringOps(node1.GetAddr(), docID, "See you later, alligator!")
 	ops2 := generateStringOps(node2.GetAddr(), docID, "In a while, crocodile!")
 
@@ -97,7 +97,7 @@ func Test_CRDT_Integration_Strong_Eventual_Consistency(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200)
 
-	// Validate the document is compiled correctly
+	// ValIDate the document is compiled correctly
 	doc1, err := node1.CompileDocument(docID)
 	require.NoError(t, err)
 
@@ -259,30 +259,30 @@ func generateStringOps(addr, docID, str string) []types.CRDTOperation {
 		Type:        types.CRDTAddBlock{}.Name(),
 		BlockType:   types.ParagraphBlock{}.Name(),
 		Origin:      addr,
-		OperationId: 1,
-		DocumentId:  docID,
-		BlockId:     blockID,
+		OperationID: 1,
+		DocumentID:  docID,
+		BlockID:     blockID,
 		Operation:   types.CRDTAddBlock{},
 	}
 
 	ops := []types.CRDTOperation{crdtOp}
 
-	prevOpID := fmt.Sprintf("%d@%s", crdtOp.OperationId, crdtOp.Origin)
+	prevOpID := fmt.Sprintf("%d@%s", crdtOp.OperationID, crdtOp.Origin)
 
 	for i, char := range str {
 		crdtOp := types.CRDTOperation{
 			Type:        types.CRDTInsertChar{}.Name(),
 			BlockType:   types.ParagraphBlock{}.Name(),
 			Origin:      addr,
-			OperationId: uint64(i + 2),
-			DocumentId:  docID,
-			BlockId:     blockID,
+			OperationID: uint64(i + 2),
+			DocumentID:  docID,
+			BlockID:     blockID,
 			Operation: types.CRDTInsertChar{
 				AfterID:   prevOpID,
 				Character: string(char),
 			},
 		}
-		prevOpID = fmt.Sprintf("%d@%s", crdtOp.OperationId, crdtOp.Origin)
+		prevOpID = fmt.Sprintf("%d@%s", crdtOp.OperationID, crdtOp.Origin)
 
 		ops = append(ops, crdtOp)
 	}

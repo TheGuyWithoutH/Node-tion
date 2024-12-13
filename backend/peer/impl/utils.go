@@ -363,10 +363,10 @@ func (n *node) GetRandomPeerFromCatalog(key string) string {
 		return ""
 	}
 
-	rndIdx := rand.Intn(len(peers))
+	rndIDx := rand.Intn(len(peers))
 	i := 0
 	for k := range peers {
-		if i == rndIdx {
+		if i == rndIDx {
 			return k
 		}
 		i++
@@ -467,12 +467,12 @@ func (a *Acceptor) Reset() {
 }
 
 // SetAcceptedProposal sets the accepted proposal of the node
-func (a *Acceptor) SetAcceptedProposal(val *types.PaxosValue, id uint) {
+func (a *Acceptor) SetAcceptedProposal(val *types.PaxosValue, ID uint) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	a.acceptedVal = val
-	a.acceptedID = id
+	a.acceptedID = ID
 }
 
 // GetAcceptedProposal gets the accepted proposal of the node
@@ -537,11 +537,11 @@ func (p *Proposer) GetProposalID() uint {
 }
 
 // SetProposalID sets the proposal ID
-func (p *Proposer) SetProposalID(id uint) {
+func (p *Proposer) SetProposalID(ID uint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.proposalID = id
+	p.proposalID = ID
 }
 
 // NewPromise increments the number of promises collected
@@ -577,33 +577,33 @@ func (p *Proposer) GetHighestAccepted() (*types.PaxosValue, uint) {
 }
 
 // SetHighestAcceptedProposal sets the highest accepted proposal
-func (p *Proposer) SetHighestAcceptedProposal(val *types.PaxosValue, id uint) {
+func (p *Proposer) SetHighestAcceptedProposal(val *types.PaxosValue, ID uint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.highestAccepted.SetAcceptedProposal(val, id)
+	p.highestAccepted.SetAcceptedProposal(val, ID)
 }
 
 // AddAcceptedProposal adds an accepted proposal
-func (p *Proposer) AddAcceptedProposal(id uint) { //, val string) {
+func (p *Proposer) AddAcceptedProposal(ID uint) { //, val string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if _, exists := p.acceptedProposals[id]; !exists {
-		p.acceptedProposals[id] = 0
+	if _, exists := p.acceptedProposals[ID]; !exists {
+		p.acceptedProposals[ID] = 0
 	}
-	p.acceptedProposals[id]++
+	p.acceptedProposals[ID]++
 }
 
 // LenAcceptedProposals returns the number of accepted proposals
-func (p *Proposer) LenAcceptedProposals(id uint) int {
+func (p *Proposer) LenAcceptedProposals(ID uint) int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if _, exists := p.acceptedProposals[id]; !exists {
+	if _, exists := p.acceptedProposals[ID]; !exists {
 		return 0
 	}
-	return int(p.acceptedProposals[id])
+	return int(p.acceptedProposals[ID])
 }
 
 // GetConsensus returns the consensus value
@@ -709,14 +709,14 @@ func (n *node) UpdateEditor(ops []types.CRDTOperation) error {
 
 	// apply the operation to the editor
 	for _, op := range ops {
-		if _, exists := n.editor.ed[op.DocumentId]; !exists {
-			n.editor.ed[op.DocumentId] = make(map[string][]types.CRDTOperation)
+		if _, exists := n.editor.ed[op.DocumentID]; !exists {
+			n.editor.ed[op.DocumentID] = make(map[string][]types.CRDTOperation)
 		}
 
-		if _, exists := n.editor.ed[op.DocumentId][op.BlockId]; !exists {
-			n.editor.ed[op.DocumentId][op.BlockId] = make([]types.CRDTOperation, 0)
+		if _, exists := n.editor.ed[op.DocumentID][op.BlockID]; !exists {
+			n.editor.ed[op.DocumentID][op.BlockID] = make([]types.CRDTOperation, 0)
 		}
-		n.editor.ed[op.DocumentId][op.BlockId] = append(n.editor.ed[op.DocumentId][op.BlockId], op)
+		n.editor.ed[op.DocumentID][op.BlockID] = append(n.editor.ed[op.DocumentID][op.BlockID], op)
 	}
 	return nil
 }
@@ -812,11 +812,11 @@ func (c *CRDTState) GetState(docID string) uint64 {
 	c.Lock()
 	defer c.Unlock()
 
-	opId, exists := c.state[docID]
+	opID, exists := c.state[docID]
 	if !exists {
 		return 0
 	}
-	return opId
+	return opID
 
 }
 

@@ -27,8 +27,8 @@ func Test_Editor_Simple_Update(t *testing.T) {
 	// sending a CRDT message
 
 	crdt := types.CRDTAddBlock{
-		AfterBlock:  "block0", // TODO
-		ParentBlock: "block0", // TODO
+		AfterBlock:  "block0",
+		ParentBlock: "block0",
 		BlockType:   "paragraph",
 		Props: types.ParagraphBlock{
 			Default: types.DefaultBlockProps{
@@ -36,7 +36,7 @@ func Test_Editor_Simple_Update(t *testing.T) {
 				TextColor:       "black",
 				TextAlignment:   "left",
 			},
-			Id: "block1",
+			ID: "block1",
 			Content: []types.InlineContent{
 				types.StyledText{
 					Text: "Hello, World!",
@@ -47,9 +47,9 @@ func Test_Editor_Simple_Update(t *testing.T) {
 
 	crdtOp := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
-		OperationId: 1,
-		DocumentId:  "doc1",
-		BlockId:     "block1",
+		OperationID: 1,
+		DocumentID:  "doc1",
+		BlockID:     "block1",
 		Operation:   crdt,
 	}
 
@@ -80,7 +80,7 @@ func Test_Editor_Simple_Update(t *testing.T) {
 	require.Len(t, receiver.GetDocumentOps("doc1"), 1)
 	require.Len(t, receiver.GetBlockOps("doc1", "block1"), 1)
 
-	require.Equal(t, crdtOp.OperationId, receiver.GetBlockOps("doc1", "block1")[0].OperationId)
+	require.Equal(t, crdtOp.OperationID, receiver.GetBlockOps("doc1", "block1")[0].OperationID)
 	require.Equal(t, crdtOp.Origin, receiver.GetBlockOps("doc1", "block1")[0].Origin)
 }
 
@@ -102,9 +102,9 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	crdtOp1 := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
-		OperationId: 1,
-		DocumentId:  "doc1",
-		BlockId:     "block1",
+		OperationID: 1,
+		DocumentID:  "doc1",
+		BlockID:     "block1",
 		Operation:   crdt1,
 	}
 
@@ -112,9 +112,9 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	crdtOp2 := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
-		OperationId: 2,
-		DocumentId:  "doc1",
-		BlockId:     "block1",
+		OperationID: 2,
+		DocumentID:  "doc1",
+		BlockID:     "block1",
 		Operation:   crdt2,
 	}
 
@@ -122,9 +122,9 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	crdtOp3 := types.CRDTOperation{
 		Origin:      sender.GetAddress(),
-		OperationId: 3,
-		DocumentId:  "doc1",
-		BlockId:     "block2",
+		OperationID: 3,
+		DocumentID:  "doc1",
+		BlockID:     "block2",
 		Operation:   crdt3,
 	}
 
@@ -180,9 +180,9 @@ func Test_Editor_Broadcast(t *testing.T) {
 
 			crdtOp := types.CRDTOperation{
 				Origin:      node1.GetAddr(),
-				OperationId: 1,
-				DocumentId:  "doc1",
-				BlockId:     "block1",
+				OperationID: 1,
+				DocumentID:  "doc1",
+				BlockID:     "block1",
 				Operation:   types.CRDTAddBlock{},
 			}
 
@@ -289,10 +289,10 @@ func Test_Editor_Broadcast(t *testing.T) {
 			require.Len(t, node2.GetDocumentOps("doc1"), 1)
 			require.Len(t, node2.GetBlockOps("doc1", "block1"), 1)
 
-			require.Equal(t, crdtOp.OperationId, node1.GetBlockOps("doc1", "block1")[0].OperationId)
+			require.Equal(t, crdtOp.OperationID, node1.GetBlockOps("doc1", "block1")[0].OperationID)
 			require.Equal(t, crdtOp.Origin, node1.GetBlockOps("doc1", "block1")[0].Origin)
 
-			require.Equal(t, crdtOp.OperationId, node2.GetBlockOps("doc1", "block1")[0].OperationId)
+			require.Equal(t, crdtOp.OperationID, node2.GetBlockOps("doc1", "block1")[0].OperationID)
 			require.Equal(t, crdtOp.Origin, node2.GetBlockOps("doc1", "block1")[0].Origin)
 		}
 	}
@@ -321,9 +321,9 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 
 	crdtOp := types.CRDTOperation{
 		Origin:      node1.GetAddr(),
-		OperationId: 1,
-		DocumentId:  "doc1",
-		BlockId:     "block1",
+		OperationID: 1,
+		DocumentID:  "doc1",
+		BlockID:     "block1",
 		Operation:   types.CRDTAddBlock{},
 	}
 
@@ -359,13 +359,13 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 	require.Len(t, node3.GetDocumentOps("doc1"), 1)
 	require.Len(t, node3.GetBlockOps("doc1", "block1"), 1)
 
-	require.Equal(t, crdtOp.OperationId, node1.GetBlockOps("doc1", "block1")[0].OperationId)
+	require.Equal(t, crdtOp.OperationID, node1.GetBlockOps("doc1", "block1")[0].OperationID)
 	require.Equal(t, crdtOp.Origin, node1.GetBlockOps("doc1", "block1")[0].Origin)
 
-	require.Equal(t, crdtOp.OperationId, node2.GetBlockOps("doc1", "block1")[0].OperationId)
+	require.Equal(t, crdtOp.OperationID, node2.GetBlockOps("doc1", "block1")[0].OperationID)
 	require.Equal(t, crdtOp.Origin, node2.GetBlockOps("doc1", "block1")[0].Origin)
 
-	require.Equal(t, crdtOp.OperationId, node3.GetBlockOps("doc1", "block1")[0].OperationId)
+	require.Equal(t, crdtOp.OperationID, node3.GetBlockOps("doc1", "block1")[0].OperationID)
 	require.Equal(t, crdtOp.Origin, node3.GetBlockOps("doc1", "block1")[0].Origin)
 }
 
@@ -374,7 +374,7 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 //
 // A -> B
 // C -> B
-func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
+func Test_Editor_Broadcast_Two_SIDes(t *testing.T) {
 
 	transp := channel.NewTransport()
 
@@ -389,9 +389,9 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 
 	crdtOp1 := types.CRDTOperation{
 		Origin:      node1.GetAddr(),
-		OperationId: 1,
-		DocumentId:  "doc1",
-		BlockId:     "block1",
+		OperationID: 1,
+		DocumentID:  "doc1",
+		BlockID:     "block1",
 		Operation:   types.CRDTAddBlock{},
 	}
 
@@ -404,9 +404,9 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 
 	crdtOp2 := types.CRDTOperation{
 		Origin:      node3.GetAddr(),
-		OperationId: 2,
-		DocumentId:  "doc1",
-		BlockId:     "block1",
+		OperationID: 2,
+		DocumentID:  "doc1",
+		BlockID:     "block1",
 		Operation:   types.CRDTAddBlock{},
 	}
 

@@ -6,6 +6,7 @@ import (
 	"Node-tion/backend/types"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -22,102 +23,26 @@ var logIO = zerolog.ConsoleWriter{
 // NewPeer creates a new peer. You can change the content and location of this
 // function, but you MUST NOT change its signature and package location.
 func NewPeer(conf peer.Configuration) peer.Peer {
-	logger := zerolog.New(logIO).With().Timestamp().Logger()
-	logger = logger.Level(zerolog.DebugLevel)
+	logger := newLogger(logIO, zerolog.DebugLevel)
+	loggerPAXOS := newLogger(logIO, zerolog.DebugLevel)
+	loggerCRDT := newLogger(logIO, zerolog.DebugLevel)
 
-	loggerPAXOS := zerolog.New(logIO).With().Timestamp().Logger()
-	loggerPAXOS = loggerPAXOS.Level(zerolog.DebugLevel)
-
-	loggerCRDT := zerolog.New(logIO).With().Timestamp().Logger()
-	loggerCRDT = loggerCRDT.Level(zerolog.DebugLevel)
-
-	routingTable := RoutingTable{
-		mu: sync.Mutex{},
-		rt: make(peer.RoutingTable),
-	}
-
-	view := View{
-		mu:       sync.Mutex{},
-		rumorSeq: 0,
-		peerSeq:  make(map[string]uint),
-		rumors:   make(map[string][]types.Rumor),
-	}
-
-	ackTickers := AckMap{
-		mu:  sync.Mutex{},
-		ack: make(map[string]chan bool),
-	}
-
-	catalog := Catalog{
-		mu:  sync.Mutex{},
-		cat: make(peer.Catalog),
-	}
-
-	dataReplyChanMap := DataReplyChanMap{
-		mu:   sync.Mutex{},
-		repl: make(map[string]chan []byte),
-	}
-
-	searchReplyChanMap := SearchReplyChanMap{
-		mu:   sync.Mutex{},
-		repl: make(map[string]chan string),
-	}
-
-	// for duplication detection
-	requests := Requests{
-		mu:  sync.Mutex{},
-		req: make(map[string]time.Time),
-	}
+	routingTable := newRoutingTable()
+	view := newView()
+	ackTickers := newAckMap()
+	catalog := newCatalog()
+	dataReplyChanMap := newDataReplyChanMap()
+	searchReplyChanMap := newSearchReplyChanMap()
+	requests := newRequests()
+	logicalClock := newLogicalClock()
+	acceptor := newAcceptor()
+	proposer := newProposer()
+	tlcMessages := newTLC()
+	editor := newEditor()
+	docTimestampMap := newDocTimestampMap()
+	crdtState := newCRDTState()
 
 	maxUploadSize := 2 * 1024 * 1024 // 2 MiB
-
-	logicalClock := LogicalClock{
-		currentStep: 0,
-		maxID:       0,
-	}
-
-	acceptor := Acceptor{
-		mu:          sync.Mutex{},
-		acceptedVal: nil,
-		acceptedID:  0,
-	}
-
-	proposer := Proposer{
-		mu:                 sync.Mutex{},
-		phase:              0,
-		proposalID:         0,
-		promisesCollected:  0,
-		collectingPromises: make(chan bool),
-		highestAccepted: &Acceptor{
-			mu:          sync.Mutex{},
-			acceptedVal: nil,
-			acceptedID:  0,
-		},
-		acceptedProposals: make(map[uint]uint),
-		collectingAccepts: make(chan bool, 1),
-		consensus:         types.PaxosValue{},
-		tlcBroadcasted:    false,
-	}
-
-	tlcMessages := TLC{
-		mu:          sync.Mutex{},
-		tlcMessages: make(map[uint][]*types.TLCMessage),
-	}
-
-	editor := Editor{
-		mu: sync.Mutex{},
-		ed: make(peer.Editor),
-	}
-
-	docTimestampMap := DocTimestampMap{
-		mu:              sync.Mutex{},
-		newestTimestamp: make(map[string]int64),
-		docSaved:        make(map[string][]string),
-	}
-
-	crdtState := CRDTState{
-		state: make(map[string]uint64),
-	}
 
 	node := node{
 		conf:               conf,
@@ -125,25 +50,140 @@ func NewPeer(conf peer.Configuration) peer.Peer {
 		log:                logger,
 		logPAXOS:           loggerPAXOS,
 		logCRDT:            loggerCRDT,
-		routingTable:       &routingTable,
-		view:               &view,
-		ackTickers:         &ackTickers,
-		catalog:            &catalog,
-		dataReplyChanMap:   &dataReplyChanMap,
-		searchReplyChanMap: &searchReplyChanMap,
-		requests:           &requests,
+		routingTable:       routingTable,
+		view:               view,
+		ackTickers:         ackTickers,
+		catalog:            catalog,
+		dataReplyChanMap:   dataReplyChanMap,
+		searchReplyChanMap: searchReplyChanMap,
+		requests:           requests,
 		maxUploadSize:      int64(maxUploadSize),
-		logicalClock:       &logicalClock,
-		acceptor:           &acceptor,
-		proposer:           &proposer,
-		tlcMessages:        &tlcMessages,
-		editor:             &editor,
-		docTimestampMap:    &docTimestampMap,
-		crdtState:          &crdtState,
+		logicalClock:       logicalClock,
+		acceptor:           acceptor,
+		proposer:           proposer,
+		tlcMessages:        tlcMessages,
+		editor:             editor,
+		docTimestampMap:    docTimestampMap,
+		crdtState:          crdtState,
 	}
-	// add itself to the routing table
 
 	return &node
+}
+
+// Helper functions
+
+func newLogger(io io.Writer, level zerolog.Level) zerolog.Logger {
+	logger := zerolog.New(io).With().Timestamp().Logger()
+	return logger.Level(level)
+}
+
+func newRoutingTable() *RoutingTable {
+	return &RoutingTable{
+		mu: sync.Mutex{},
+		rt: make(peer.RoutingTable),
+	}
+}
+
+func newView() *View {
+	return &View{
+		mu:       sync.Mutex{},
+		rumorSeq: 0,
+		peerSeq:  make(map[string]uint),
+		rumors:   make(map[string][]types.Rumor),
+	}
+}
+
+func newAckMap() *AckMap {
+	return &AckMap{
+		mu:  sync.Mutex{},
+		ack: make(map[string]chan bool),
+	}
+}
+
+func newCatalog() *Catalog {
+	return &Catalog{
+		mu:  sync.Mutex{},
+		cat: make(peer.Catalog),
+	}
+}
+
+func newDataReplyChanMap() *DataReplyChanMap {
+	return &DataReplyChanMap{
+		mu:   sync.Mutex{},
+		repl: make(map[string]chan []byte),
+	}
+}
+
+func newSearchReplyChanMap() *SearchReplyChanMap {
+	return &SearchReplyChanMap{
+		mu:   sync.Mutex{},
+		repl: make(map[string]chan string),
+	}
+}
+
+func newRequests() *Requests {
+	return &Requests{
+		mu:  sync.Mutex{},
+		req: make(map[string]time.Time),
+	}
+}
+
+func newLogicalClock() *LogicalClock {
+	return &LogicalClock{
+		currentStep: 0,
+		maxID:       0,
+	}
+}
+
+func newAcceptor() *Acceptor {
+	return &Acceptor{
+		mu:          sync.Mutex{},
+		acceptedVal: nil,
+		acceptedID:  0,
+	}
+}
+
+func newProposer() *Proposer {
+	return &Proposer{
+		mu:                 sync.Mutex{},
+		phase:              0,
+		proposalID:         0,
+		promisesCollected:  0,
+		collectingPromises: make(chan bool),
+		highestAccepted:    newAcceptor(),
+		acceptedProposals:  make(map[uint]uint),
+		collectingAccepts:  make(chan bool, 1),
+		consensus:          types.PaxosValue{},
+		tlcBroadcasted:     false,
+	}
+}
+
+func newTLC() *TLC {
+	return &TLC{
+		mu:          sync.Mutex{},
+		tlcMessages: make(map[uint][]*types.TLCMessage),
+	}
+}
+
+func newEditor() *Editor {
+	return &Editor{
+		mu: sync.Mutex{},
+		ed: make(peer.Editor),
+	}
+}
+
+func newDocTimestampMap() *DocTimestampMap {
+	return &DocTimestampMap{
+		mu:              sync.Mutex{},
+		newestTimestamp: make(map[string]int64),
+		docSaved:        make(map[string][]string),
+	}
+}
+
+func newCRDTState() *CRDTState {
+	return &CRDTState{
+		state: make(map[string]uint64),
+	}
 }
 
 // node implements a peer to build a Peerster system
@@ -384,7 +424,7 @@ func (n *node) AntiEntropyTicker() {
 				n.log.Error().Err(err).Msg("Failed to send anti-entropy StatusMessage")
 			}
 
-			// TODO send CRDTMessage
+			// send CRDTMessage
 		}
 	}
 }

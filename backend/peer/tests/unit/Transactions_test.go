@@ -24,9 +24,9 @@ func Test_SaveTransactions_SingleOperation(t *testing.T) {
 
 	crdtOp := types.CRDTOperation{
 		Origin:      node.GetAddr(),
-		OperationId: 0, // Will be updated in SaveTransactions
-		DocumentId:  "doc1",
-		BlockId:     "block1",
+		OperationID: 0, // Will be updated in SaveTransactions
+		DocumentID:  "doc1",
+		BlockID:     "block1",
 		Operation:   types.CRDTAddBlock{},
 	}
 
@@ -39,15 +39,15 @@ func Test_SaveTransactions_SingleOperation(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200)
 
-	// Validate the CRDT state is updated
+	// ValIDate the CRDT state is updated
 	require.Equal(t, uint64(1), node.GetCRDTState("doc1"))
 
-	// Validate the operation ID is updated and saved
+	// ValIDate the operation ID is updated and saved
 	ops := node.GetBlockOps("doc1", "block1")
 	require.Len(t, ops, 1)
-	require.Equal(t, uint64(1), ops[0].OperationId)
+	require.Equal(t, uint64(1), ops[0].OperationID)
 
-	// Validate the operation is broadcasted
+	// ValIDate the operation is broadcasted
 	require.Len(t, node.GetOuts(), 1)
 }
 
@@ -66,16 +66,16 @@ func Test_SaveTransactions_MultipleOperations(t *testing.T) {
 	ops := []types.CRDTOperation{
 		{
 			Origin:      node.GetAddr(),
-			OperationId: 0,
-			DocumentId:  "doc1",
-			BlockId:     "block1",
+			OperationID: 0,
+			DocumentID:  "doc1",
+			BlockID:     "block1",
 			Operation:   types.CRDTAddBlock{},
 		},
 		{
 			Origin:      node.GetAddr(),
-			OperationId: 0,
-			DocumentId:  "doc1",
-			BlockId:     "block2",
+			OperationID: 0,
+			DocumentID:  "doc1",
+			BlockID:     "block2",
 			Operation:   types.CRDTInsertChar{},
 		},
 	}
@@ -89,15 +89,15 @@ func Test_SaveTransactions_MultipleOperations(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200)
 
-	// Validate the CRDT state is updated
+	// ValIDate the CRDT state is updated
 	require.Equal(t, uint64(2), node.GetCRDTState("doc1"))
 
-	// Validate operations are updated and saved
+	// ValIDate operations are updated and saved
 	require.Len(t, node.GetBlockOps("doc1", "block1"), 1)
 	require.Len(t, node.GetBlockOps("doc1", "block2"), 1)
-	require.Equal(t, uint64(1), node.GetBlockOps("doc1", "block1")[0].OperationId)
-	require.Equal(t, uint64(2), node.GetBlockOps("doc1", "block2")[0].OperationId)
+	require.Equal(t, uint64(1), node.GetBlockOps("doc1", "block1")[0].OperationID)
+	require.Equal(t, uint64(2), node.GetBlockOps("doc1", "block2")[0].OperationID)
 
-	// Validate the operations are broadcasted
+	// ValIDate the operations are broadcasted
 	require.Len(t, node.GetOuts(), 1)
 }

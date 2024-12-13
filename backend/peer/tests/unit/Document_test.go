@@ -4,11 +4,12 @@ import (
 	z "Node-tion/backend/internal/testing"
 	"Node-tion/backend/transport/channel"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // Check that a document is stored in the correct directory.
@@ -67,6 +68,9 @@ func Test_Document_Directory_Store(t *testing.T) {
 	// > check that the file contains the document
 
 	file, err := os.ReadFile(fmt.Sprintf("%s/%s", docDir, fileName))
+	if err != nil {
+		t.Errorf("failed to read file: %v", err)
+	}
 	require.Equal(t, doc, string(file))
 
 	// remove the file
