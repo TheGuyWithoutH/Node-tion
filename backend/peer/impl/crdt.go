@@ -64,6 +64,9 @@ func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error 
 	for i, operation := range operations {
 		opDocId := operation.DocumentId
 
+		// Set origin of the operation
+		operation.Origin = n.conf.Socket.GetAddress()
+
 		// Update the CRDT state by incrementing document wide operation ids.
 		n.crdtState.SetState(opDocId, n.crdtState.GetState(opDocId)+1)
 

@@ -7,11 +7,12 @@ import (
 	"Node-tion/backend/transport/disrupted"
 	"Node-tion/backend/types"
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/rand"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/rand"
 )
 
 // Test_CRDT_Integration_Pipeline runs the CRDT pipeline with a single node.
@@ -255,13 +256,13 @@ func generateStringOps(addr, docID, str string) []types.CRDTOperation {
 
 	// Generate CRDTOperationsMessage
 	crdtOp := types.CRDTOperation{
-		Type:        types.CRDTAddBlock[types.ParagraphBlock]{}.Name(),
+		Type:        types.CRDTAddBlock{}.Name(),
 		BlockType:   types.ParagraphBlock{}.Name(),
 		Origin:      addr,
 		OperationId: 1,
 		DocumentId:  docID,
 		BlockId:     blockID,
-		Operation:   types.CRDTAddBlock[types.ParagraphBlock]{},
+		Operation:   types.CRDTAddBlock{},
 	}
 
 	ops := []types.CRDTOperation{crdtOp}
@@ -282,7 +283,7 @@ func generateStringOps(addr, docID, str string) []types.CRDTOperation {
 			},
 		}
 		prevOpID = fmt.Sprintf("%d@%s", crdtOp.OperationId, crdtOp.Origin)
-		
+
 		ops = append(ops, crdtOp)
 	}
 	return ops
