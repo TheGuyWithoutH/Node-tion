@@ -15,6 +15,8 @@ type CRDTOp interface {
 
 type TextAlignment string
 type HeadingLevel int
+type BlockTypeName string
+
 type TextStyle struct {
 	Bold            bool
 	Italic          bool
@@ -23,6 +25,15 @@ type TextStyle struct {
 	TextColor       string
 	BackgroundColor string
 }
+
+const (
+	ParagraphBlockType    BlockTypeName = "paragraph"
+	HeadingBlockType      BlockTypeName = "heading"
+	BulletedListBlockType BlockTypeName = "bulleted_list"
+	NumberedListBlockType BlockTypeName = "numbered_list"
+	ImageBlockType        BlockTypeName = "image"
+	TableBlockType        BlockTypeName = "table"
+)
 
 const (
 	H1 HeadingLevel = 1
@@ -193,19 +204,19 @@ type CRDTOperation struct {
 	Operation   CRDTOp
 }
 
-// CRDTAddBlock implements CRDTOp.
-type CRDTAddBlock[T BlockType] struct {
+type CRDTAddBlock struct {
 	CRDTOp
 	AfterBlock  string
 	ParentBlock string
-	Props       T
+	BlockType   string
+	Props       BlockType
 }
 
-func (op CRDTAddBlock[BlockType]) NewEmpty() CRDTOp {
-	return CRDTAddBlock[BlockType]{}
+func (op CRDTAddBlock) NewEmpty() CRDTOp {
+	return CRDTAddBlock{}
 }
 
-func (op CRDTAddBlock[BlockType]) Name() string {
+func (op CRDTAddBlock) Name() string {
 	return "CRDTAddBlock"
 }
 
@@ -224,19 +235,20 @@ func (op CRDTRemoveBlock) Name() string {
 }
 
 // CRDTUpdateBlock implements CRDTOp.
-type CRDTUpdateBlock[T BlockType] struct {
+type CRDTUpdateBlock struct {
 	CRDTOp
 	UpdatedBlock string
 	AfterBlock   string
 	ParentBlock  string
-	Props        T
+	BlockType    string
+	Props        BlockType
 }
 
-func (op CRDTUpdateBlock[BlockType]) NewEmpty() CRDTOp {
-	return CRDTUpdateBlock[BlockType]{}
+func (op CRDTUpdateBlock) NewEmpty() CRDTOp {
+	return CRDTUpdateBlock{}
 }
 
-func (op CRDTUpdateBlock[BlockType]) Name() string {
+func (op CRDTUpdateBlock) Name() string {
 	return "CRDTUpdateBlock"
 }
 
