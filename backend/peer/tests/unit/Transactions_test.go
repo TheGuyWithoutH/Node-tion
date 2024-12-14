@@ -4,6 +4,7 @@ import (
 	z "Node-tion/backend/internal/testing"
 	"Node-tion/backend/transport/channel"
 	"Node-tion/backend/types"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -100,4 +101,63 @@ func Test_SaveTransactions_MultipleOperations(t *testing.T) {
 
 	// ValIDate the operations are broadcasted
 	require.Len(t, node.GetOuts(), 1)
+}
+
+// Test_SaveTransactions_TempIDMapping verifies the temporary ID mapping functionality during SaveTransactions.
+// Test_SaveTransactions_TempIDMappingWithEditor verifies the temporary ID mapping functionality and uses Editor for validation.
+func Test_SaveTransactions_TempIDMappingWithEditor(t *testing.T) {
+	transp := channel.NewTransport()
+
+	node := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0")
+	defer node.Stop()
+
+	pe := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0")
+	defer pe.Stop()
+
+	node.AddPeer(pe.GetAddr())
+
+	// Create operations with temporary IDs
+	ops := []types.CRDTOperation{
+		{
+			Origin:      node.GetAddr(),
+			OperationID: 42, // Temporary ID
+			DocumentID:  "doc1",
+			BlockID:     "block1",
+			Operation: types.CRDTAddBlock{
+				AfterBlock: "43@temp",
+			},
+		},
+		{
+			Origin:      node.GetAddr(),
+			OperationID: 43, // Another Temporary ID
+			DocumentID:  "doc1",
+			BlockID:     "block2",
+			Operation: types.CRDTInsertChar{
+				AfterID: "42@temp",
+			},
+		},
+	}
+
+	crdtMsg := types.CRDTOperationsMessage{
+		Operations: ops,
+	}
+
+	err := node.SaveTransactions(crdtMsg)
+	require.NoError(t, err)
+
+	time.Sleep(time.Millisecond * 200)
+
+	editor := node.GetEditor()
+
+	require.Equal(t, editor["doc1"]["block1"][0].OperationID, uint64(1))
+	require.Equal(t, editor["doc1"]["block2"][0].OperationID, uint64(2))
+
+	bs, _ := json.Marshal(editor["doc1"]["block1"][0].Operation)
+
+	addOp := types.CRDTAddBlock{}
+
+	err = json.Unmarshal(bs, &addOp)
+	require.NoError(t, err)
+	require.Equal(t, addOp.AfterBlock, "2@temp")
+
 }

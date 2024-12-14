@@ -5,7 +5,11 @@ import (
 	"Node-tion/backend/types"
 	"crypto"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -805,7 +809,8 @@ func (dtm *DocTimestampMap) DocSavedLen(docID string) int {
 
 type CRDTState struct {
 	sync.Mutex
-	state map[string]uint64
+	state map[string]uint64 // map of documentIDs latest OperationID
+	tmp   map[uint64]uint64 // map of tmpIDs to OperationIDs
 }
 
 func (c *CRDTState) GetState(docID string) uint64 {
@@ -827,10 +832,71 @@ func (c *CRDTState) SetState(docID string, state uint64) {
 	c.state[docID] = state
 }
 
+func (c *CRDTState) SetTmpID(tmpID, opID uint64) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.tmp[tmpID] = opID
+}
+
+func (c *CRDTState) GetTmpID(tmpID uint64) uint64 {
+	c.Lock()
+	defer c.Unlock()
+
+	opID, exists := c.tmp[tmpID]
+	if !exists {
+		return 0
+	}
+	return opID
+}
+
+func (c *CRDTState) ResetTmp() {
+	c.Lock()
+	defer c.Unlock()
+
+	c.tmp = make(map[uint64]uint64)
+}
+
 func (n *node) GetCRDTState(docID string) uint64 {
 	return n.crdtState.GetState(docID)
 }
 
+func (n *node) GetTmpID(id uint64) uint64 {
+	return n.crdtState.GetTmpID(id)
+}
+
 func (n *node) GetAddress() string {
 	return n.conf.Socket.GetAddress()
+}
+
+// ParseID extracts the ID before the "@" symbol and the username after it.
+func ParseID(input string) (uint64, string, error) {
+	// Split the input string on the "@" character.
+	parts := strings.Split(input, "@")
+	if len(parts) != 2 {
+		return 0, "", errors.New("invalid format: missing or too many '@' symbols")
+	}
+
+	// Convert the first part to uint64.
+	id, err := strconv.ParseUint(parts[0], 10, 64)
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid ID: %w", err)
+	}
+
+	// The username is the second part.
+	username := parts[1]
+
+	return id, username, nil
+}
+
+// ReconstructString constructs a string in the format "ID@username" from a uint64 ID and a string username.
+func ReconstructString(id uint64, username string) (string, error) {
+	// Validate the username to ensure it is not empty.
+	if username == "" {
+		return "", fmt.Errorf("username cannot be empty")
+	}
+
+	// Construct the string in the desired format.
+	result := fmt.Sprintf("%d@%s", id, username)
+	return result, nil
 }

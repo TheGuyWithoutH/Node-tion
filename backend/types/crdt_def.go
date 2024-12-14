@@ -17,6 +17,16 @@ type TextAlignment string
 type HeadingLevel int
 type BlockTypeName string
 
+type MarkStart struct {
+	Type string
+	OpID string
+}
+
+type MarkEnd struct {
+	Type string
+	OpID string
+}
+
 type TextStyle struct {
 	Bold            bool
 	Italic          bool
@@ -173,7 +183,7 @@ type ImageBlock struct {
 	ID           string
 	URL          string
 	Caption      string
-	PreviewWIDth uint
+	PreviewWidth uint
 	Children     []BlockType
 }
 
@@ -281,13 +291,19 @@ func (op CRDTDeleteChar) Name() string {
 	return "CRDTDeleteChar"
 }
 
+type MarkOptions struct {
+	Color string
+	Href  string
+}
+
 // CRDTAddMark implements CRDTOp.
 type CRDTAddMark struct {
 	CRDTOp
-	Start    struct{}
-	End      struct{}
-	MarkType TextStyle
-	Options  struct{}
+	OpID     string
+	Start    MarkStart
+	End      MarkEnd
+	MarkType string
+	Options  MarkOptions
 }
 
 func (op CRDTAddMark) NewEmpty() CRDTOp {
@@ -301,9 +317,10 @@ func (op CRDTAddMark) Name() string {
 // CRDTRemoveMark implements CRDTOp.
 type CRDTRemoveMark struct {
 	CRDTOp
-	Start    struct{}
-	End      struct{}
-	MarkType TextStyle
+	OpID     string
+	Start    MarkStart
+	End      MarkEnd
+	MarkType string
 }
 
 func (op CRDTRemoveMark) NewEmpty() CRDTOp {

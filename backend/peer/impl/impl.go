@@ -183,6 +183,7 @@ func newDocTimestampMap() *DocTimestampMap {
 func newCRDTState() *CRDTState {
 	return &CRDTState{
 		state: make(map[string]uint64),
+		tmp:   make(map[uint64]uint64),
 	}
 }
 

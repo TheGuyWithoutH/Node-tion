@@ -30,6 +30,8 @@ type CRDT interface {
 
 	// CompileDocument compiles the document from the CRDT operations.
 	CompileDocument(docID string) (string, error)
+
+	GetTmpID(id uint64) uint64
 }
 
 // Editor tells, for a given document referenced by a key, a bag of blocks
