@@ -30,7 +30,7 @@ func Test_Editor_Simple_Update(t *testing.T) {
 		AfterBlock:  "block0",
 		ParentBlock: "block0",
 		BlockType:   "paragraph",
-		Props: types.ParagraphBlock{
+		Props: &types.ParagraphBlock{
 			Default: types.DefaultBlockProps{
 				BackgroundColor: "white",
 				TextColor:       "black",
@@ -38,7 +38,7 @@ func Test_Editor_Simple_Update(t *testing.T) {
 			},
 			ID: "block1",
 			Content: []types.InlineContent{
-				types.StyledText{
+				&types.StyledText{
 					Text: "Hello, World!",
 				},
 			},
