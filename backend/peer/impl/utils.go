@@ -5,6 +5,7 @@ import (
 	"Node-tion/backend/types"
 	"crypto"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -720,6 +721,10 @@ func (n *node) UpdateEditor(ops []types.CRDTOperation) error {
 		if _, exists := n.editor.ed[op.DocumentID][op.BlockID]; !exists {
 			n.editor.ed[op.DocumentID][op.BlockID] = make([]types.CRDTOperation, 0)
 		}
+
+		// cast the operation to the correct type
+		n.CastOperation(&op)
+
 		n.editor.ed[op.DocumentID][op.BlockID] = append(n.editor.ed[op.DocumentID][op.BlockID], op)
 	}
 	return nil
@@ -745,7 +750,141 @@ func (n *node) GetBlockOps(docID, blockID string) []types.CRDTOperation {
 
 	block := make([]types.CRDTOperation, len(n.editor.ed[docID][blockID]))
 	copy(block, n.editor.ed[docID][blockID])
+
 	return block
+}
+
+// CastOperation casts the operation to the correct type
+// necessary after having marshalled the struct and sent as a CRDTOperationsMessage
+func (n *node) CastOperation(op *types.CRDTOperation) {
+	var err error
+
+	switch op.Type {
+	case types.CRDTAddBlockType:
+		crdtOp := &types.CRDTAddBlock{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTRemoveBlockType:
+		crdtOp := &types.CRDTRemoveBlock{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTUpdateBlockType:
+		crdtOp := &types.CRDTUpdateBlock{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTInsertCharType:
+		crdtOp := &types.CRDTInsertChar{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTDeleteCharType:
+		crdtOp := &types.CRDTDeleteChar{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTAddMarkType:
+		crdtOp := &types.CRDTAddMark{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTRemoveMarkType:
+		crdtOp := &types.CRDTRemoveMark{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	default:
+		n.logCRDT.Error().Msg("Unknown operation type")
+		return
+	}
+
+	if err != nil {
+		n.logCRDT.Error().Err(err).Msg("Failed to cast operation")
+	}
+}
+
+// CastAndSetOperation casts the operation to the correct type and sets it
+func (n *node) CastAndSetOperation(op *types.CRDTOperation, target types.CRDTOp) error {
+	byteCrdt, err := json.Marshal(op.Operation)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(byteCrdt, target)
+	if err != nil {
+		return err
+	}
+
+	// Explicitly cast Props field if target has Props
+	if addBlock, ok := target.(*types.CRDTAddBlock); ok {
+		props, err := n.CastAndSetProps(addBlock.BlockType, addBlock.Props)
+		if err != nil {
+			return err
+		}
+		addBlock.Props = dereferenceIfPropsPointer(props)
+	}
+	if updateBlock, ok := target.(*types.CRDTUpdateBlock); ok {
+		props, err := n.CastAndSetProps(updateBlock.BlockType, updateBlock.Props)
+		if err != nil {
+			return err
+		}
+		updateBlock.Props = dereferenceIfPropsPointer(props)
+	}
+
+	// Assign the dereferenced value to op.Operation
+	op.Operation = dereferenceIfOpPointer(target)
+	return nil
+}
+
+// CastAndSetProps casts the block to the correct type and sets it
+func (n *node) CastAndSetProps(blockType string, props interface{}) (types.BlockType, error) {
+	byteProps, err := json.Marshal(props)
+	if err != nil {
+		return nil, err
+	}
+
+	switch blockType {
+	case types.ParagraphBlockType:
+		var paragraphBlock types.ParagraphBlock
+		err = json.Unmarshal(byteProps, &paragraphBlock)
+		return &paragraphBlock, err
+	case types.HeadingBlockType:
+		var headingBlock types.HeadingBlock
+		err = json.Unmarshal(byteProps, &headingBlock)
+		return &headingBlock, err
+	case types.BulletedListBlockType:
+		var bulletedListBlock types.BulletedListBlock
+		err = json.Unmarshal(byteProps, &bulletedListBlock)
+		return &bulletedListBlock, err
+	case types.NumberedListBlockType:
+		var numberedListBlock types.NumberedListBlock
+		err = json.Unmarshal(byteProps, &numberedListBlock)
+		return &numberedListBlock, err
+	default:
+		return nil, fmt.Errorf("unknown block type")
+	}
+}
+
+// Helper function to dereference a pointer if needed
+func dereferenceIfOpPointer(op types.CRDTOp) types.CRDTOp {
+	switch v := op.(type) {
+	case *types.CRDTAddBlock:
+		return *v
+	case *types.CRDTUpdateBlock:
+		return *v
+	case *types.CRDTInsertChar:
+		return *v
+	case *types.CRDTDeleteChar:
+		return *v
+	case *types.CRDTAddMark:
+		return *v
+	case *types.CRDTRemoveMark:
+		return *v
+	default:
+		return op
+	}
+}
+
+func dereferenceIfPropsPointer(props interface{}) interface{} {
+	switch v := props.(type) {
+	case *types.ParagraphBlock:
+		return *v
+	case *types.HeadingBlock:
+		return *v
+	case *types.BulletedListBlock:
+		return *v
+	case *types.NumberedListBlock:
+		return *v
+	default:
+		return props
+	}
 }
 
 // DocTimestampMap is the latest timestamp of the document saved in the directory

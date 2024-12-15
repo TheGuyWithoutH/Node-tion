@@ -8,14 +8,10 @@ type CRDTOperationsMessage struct {
 }
 
 // CRDTOp is an interface that defines the methods that a CRDT operation must implement.
-type CRDTOp interface {
-	// NewEmpty() CRDTOp
-	// Name() string
-}
+type CRDTOp interface{}
 
 type TextAlignment string
 type HeadingLevel int
-type BlockTypeName string
 
 type MarkStart struct {
 	Type string
@@ -59,7 +55,7 @@ const (
 	Justify TextAlignment = "justify"
 )
 
-const ( // CRDT Operation Types
+const ( // CRDTOp Operation Types
 	CRDTAddBlockType    = "addBlock"
 	CRDTRemoveBlockType = "removeBlock"
 	CRDTUpdateBlockType = "updateBlock"
@@ -78,6 +74,24 @@ const ( // Mark Types
 	BackgroundColor = "backgroundColor"
 )
 
+const StyledTextType = "styledText"
+
+const LinkType = "link"
+
+const ( // Heading Levels
+	H1 HeadingLevel = 1
+	H2 HeadingLevel = 2
+	H3 HeadingLevel = 3
+	H4 HeadingLevel = 4
+)
+
+const ( // Text Alignments
+	Left    TextAlignment = "left"
+	Center  TextAlignment = "center"
+	Right   TextAlignment = "right"
+	Justify TextAlignment = "justify"
+)
+
 var defaultBlockProps = DefaultBlockProps{
 	BackgroundColor: "white",
 	TextColor:       "black",
@@ -85,19 +99,73 @@ var defaultBlockProps = DefaultBlockProps{
 }
 
 // BlockType is an interface that defines operations on blocks.
-type BlockType interface {
-	NewEmpty() BlockType
-	Name() string
-	AddChildren(children []BlockType)
-	AddContent(content []CRDTInsertChar, style map[string]TextStyle)
-	ToJson() string
+type BlockType interface{}
+
+func SerializeBlock(block BlockType) string {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		return b.ToJson()
+	case *HeadingBlock:
+		return b.ToJson()
+	case *BulletedListBlock:
+		return b.ToJson()
+	case *NumberedListBlock:
+		return b.ToJson()
+	case *ImageBlock:
+		return b.ToJson()
+	case *TableBlock:
+		return b.ToJson()
+	default:
+		return "{}" // Fallback for unknown types
+	}
+}
+
+func AddContent(block BlockType, content []CRDTInsertChar, style map[string]TextStyle) {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		b.AddContent(content, style)
+	case *HeadingBlock:
+		b.AddContent(content, style)
+	case *BulletedListBlock:
+		b.AddContent(content, style)
+	case *NumberedListBlock:
+		b.AddContent(content, style)
+	case *ImageBlock:
+		b.AddContent(content, style)
+	case *TableBlock:
+		b.AddContent(content, style)
+	}
+}
+
+func AddChildren(block BlockType, children []BlockType) {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		b.AddChildren(children)
+	case *HeadingBlock:
+		b.AddChildren(children)
+	case *BulletedListBlock:
+		b.AddChildren(children)
+	case *NumberedListBlock:
+		b.AddChildren(children)
+	case *ImageBlock:
+		b.AddChildren(children)
+	case *TableBlock:
+		b.AddChildren(children)
+	}
 }
 
 // InlineContent is an interface that defines operations on inline content.
-type InlineContent interface {
-	NewEmpty() InlineContent
-	Name() string
-	ToJson() string
+type InlineContent interface{}
+
+func SerializeInlineContent(content InlineContent) string {
+	switch c := content.(type) {
+	case *StyledText:
+		return c.ToJson()
+	case *Link:
+		return c.ToJson()
+	default:
+		return "{}" // Fallback for unknown types
+	}
 }
 
 // TableContent is a struct that defines the content of a table.
@@ -153,7 +221,6 @@ type BulletedListBlock struct {
 	Children []BlockType
 }
 
-// NumberedListBlock implements BlockType.
 type NumberedListBlock struct {
 	BlockType
 	Default  DefaultBlockProps

@@ -82,7 +82,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			}
 		}
 
-		block.AddContent(sortedChars, textStyles)
+		types.AddContent(block, sortedChars, textStyles)
 		finalDoc[blockOp.OpID] = block
 
 		// Check if the block has parents
@@ -92,7 +92,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			if parentBlock == nil {
 				return "", xerrors.Errorf("parent block not found")
 			}
-			parentBlock.AddChildren([]types.BlockType{block})
+			types.AddChildren(block, []types.BlockType{block})
 		}
 	}
 
@@ -113,7 +113,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 	for i := range blockOps {
 		n.logCRDT.Debug().Msgf("block %s being compiled", blockOps[i])
 		block := finalDoc[blockOps[i]]
-		finalJson += block.ToJson() + ","
+		finalJson += types.SerializeBlock(block) + ","
 	}
 	finalJson = finalJson[:len(finalJson)-1] // Remove the additional ","
 	finalJson += "]"
@@ -279,6 +279,11 @@ func (n *node) StoreDocument(docID, doc string) error {
 func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error {
 	operations := transactions.Operations
 	n.logCRDT.Debug().Msgf("SaveTransactions: %d operations", len(operations))
+
+	// Step 0: Cast all interfaces to the respective types
+	for _, operation := range operations {
+		n.CastOperation(&operation)
+	}
 
 	// Step 1: Update CRDT states and initialize operations
 	for i, operation := range operations {

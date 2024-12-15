@@ -26,23 +26,20 @@ func Test_Editor_Simple_Update(t *testing.T) {
 
 	// sending a CRDT message
 
-	crdt := types.CRDTAddBlock{
-		AfterBlock:  "block0",
-		ParentBlock: "block0",
-		BlockType:   types.ParagraphBlockType,
-		Props: types.DefaultBlockProps{
-			BackgroundColor: "white",
-			TextColor:       "black",
-			TextAlignment:   "left",
-		},
-	}
-
 	crdtOp := types.CRDTOperation{
+		Type:        types.CRDTAddBlockType,
 		Origin:      sender.GetAddress(),
 		OperationID: 1,
 		DocumentID:  "doc1",
 		BlockID:     "block1",
-		Operation:   crdt,
+		Operation: types.CRDTAddBlock{
+			BlockType: types.HeadingBlockType,
+			Props:     types.DefaultBlockProps{
+			  BackgroundColor: "white",
+			  TextColor:       "black",
+			  TextAlignment:   "left",
+		  },
+		},
 	}
 
 	crdtMsg := types.CRDTOperationsMessage{
@@ -74,6 +71,8 @@ func Test_Editor_Simple_Update(t *testing.T) {
 
 	require.Equal(t, crdtOp.OperationID, receiver.GetBlockOps("doc1", "block1")[0].OperationID)
 	require.Equal(t, crdtOp.Origin, receiver.GetBlockOps("doc1", "block1")[0].Origin)
+
+	require.Equal(t, crdtOp, receiver.GetBlockOps("doc1", "block1")[0])
 }
 
 // Check that the Editor can handle an update with multiple operations.
@@ -90,9 +89,13 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	// sending multiple CRDT messages
 
-	crdt1 := types.CRDTAddBlock{}
+	crdt1 := types.CRDTAddBlock{
+		BlockType: types.ParagraphBlockType,
+		Props:     types.ParagraphBlock{},
+	}
 
 	crdtOp1 := types.CRDTOperation{
+		Type:        types.CRDTAddBlockType,
 		Origin:      sender.GetAddress(),
 		OperationID: 1,
 		DocumentID:  "doc1",
@@ -103,6 +106,7 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 	crdt2 := types.CRDTInsertChar{}
 
 	crdtOp2 := types.CRDTOperation{
+		Type:        types.CRDTInsertCharType,
 		Origin:      sender.GetAddress(),
 		OperationID: 2,
 		DocumentID:  "doc1",
@@ -110,9 +114,13 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 		Operation:   crdt2,
 	}
 
-	crdt3 := types.CRDTAddBlock{}
+	crdt3 := types.CRDTAddBlock{
+		BlockType: types.ParagraphBlockType,
+		Props:     types.ParagraphBlock{},
+	}
 
 	crdtOp3 := types.CRDTOperation{
+		Type:        types.CRDTAddBlockType,
 		Origin:      sender.GetAddress(),
 		OperationID: 3,
 		DocumentID:  "doc1",
@@ -171,11 +179,15 @@ func Test_Editor_Broadcast(t *testing.T) {
 			node1.AddPeer(node2.GetAddr())
 
 			crdtOp := types.CRDTOperation{
+				Type:        types.CRDTAddBlockType,
 				Origin:      node1.GetAddr(),
 				OperationID: 1,
 				DocumentID:  "doc1",
 				BlockID:     "block1",
-				Operation:   types.CRDTAddBlock{},
+				Operation: types.CRDTAddBlock{
+					BlockType: types.NumberedListBlockType,
+					Props:     types.NumberedListBlock{},
+				},
 			}
 
 			crdtMsg := types.CRDTOperationsMessage{
@@ -281,11 +293,9 @@ func Test_Editor_Broadcast(t *testing.T) {
 			require.Len(t, node2.GetDocumentOps("doc1"), 1)
 			require.Len(t, node2.GetBlockOps("doc1", "block1"), 1)
 
-			require.Equal(t, crdtOp.OperationID, node1.GetBlockOps("doc1", "block1")[0].OperationID)
-			require.Equal(t, crdtOp.Origin, node1.GetBlockOps("doc1", "block1")[0].Origin)
+			require.Equal(t, crdtOp, node1.GetBlockOps("doc1", "block1")[0])
 
-			require.Equal(t, crdtOp.OperationID, node2.GetBlockOps("doc1", "block1")[0].OperationID)
-			require.Equal(t, crdtOp.Origin, node2.GetBlockOps("doc1", "block1")[0].Origin)
+			require.Equal(t, crdtOp, node2.GetBlockOps("doc1", "block1")[0])
 		}
 	}
 
@@ -312,11 +322,15 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 	defer node3.Stop()
 
 	crdtOp := types.CRDTOperation{
+		Type:        types.CRDTAddBlockType,
 		Origin:      node1.GetAddr(),
 		OperationID: 1,
 		DocumentID:  "doc1",
 		BlockID:     "block1",
-		Operation:   types.CRDTAddBlock{},
+		Operation: types.CRDTAddBlock{
+			BlockType: types.BulletedListBlockType,
+			Props:     types.BulletedListBlock{},
+		},
 	}
 
 	crdtMsg := types.CRDTOperationsMessage{
@@ -351,14 +365,9 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 	require.Len(t, node3.GetDocumentOps("doc1"), 1)
 	require.Len(t, node3.GetBlockOps("doc1", "block1"), 1)
 
-	require.Equal(t, crdtOp.OperationID, node1.GetBlockOps("doc1", "block1")[0].OperationID)
-	require.Equal(t, crdtOp.Origin, node1.GetBlockOps("doc1", "block1")[0].Origin)
-
-	require.Equal(t, crdtOp.OperationID, node2.GetBlockOps("doc1", "block1")[0].OperationID)
-	require.Equal(t, crdtOp.Origin, node2.GetBlockOps("doc1", "block1")[0].Origin)
-
-	require.Equal(t, crdtOp.OperationID, node3.GetBlockOps("doc1", "block1")[0].OperationID)
-	require.Equal(t, crdtOp.Origin, node3.GetBlockOps("doc1", "block1")[0].Origin)
+	require.Equal(t, crdtOp, node1.GetBlockOps("doc1", "block1")[0])
+	require.Equal(t, crdtOp, node2.GetBlockOps("doc1", "block1")[0])
+	require.Equal(t, crdtOp, node3.GetBlockOps("doc1", "block1")[0])
 }
 
 // Check that Editors have the same sizes after a Broadcast of CRDTOperationsMessage
@@ -366,7 +375,7 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 //
 // A -> B
 // C -> B
-func Test_Editor_Broadcast_Two_SIDes(t *testing.T) {
+func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 
 	transp := channel.NewTransport()
 
@@ -380,11 +389,15 @@ func Test_Editor_Broadcast_Two_SIDes(t *testing.T) {
 	defer node3.Stop()
 
 	crdtOp1 := types.CRDTOperation{
+		Type:        types.CRDTAddBlockType,
 		Origin:      node1.GetAddr(),
 		OperationID: 1,
 		DocumentID:  "doc1",
 		BlockID:     "block1",
-		Operation:   types.CRDTAddBlock{},
+		Operation: types.CRDTAddBlock{
+			BlockType: types.ParagraphBlockType,
+			Props:     types.ParagraphBlock{},
+		},
 	}
 
 	crdtMsg1 := types.CRDTOperationsMessage{
@@ -395,11 +408,15 @@ func Test_Editor_Broadcast_Two_SIDes(t *testing.T) {
 	require.NoError(t, err)
 
 	crdtOp2 := types.CRDTOperation{
+		Type:        types.CRDTAddBlockType,
 		Origin:      node3.GetAddr(),
 		OperationID: 2,
 		DocumentID:  "doc1",
 		BlockID:     "block1",
-		Operation:   types.CRDTAddBlock{},
+		Operation: types.CRDTAddBlock{
+			BlockType: types.ParagraphBlockType,
+			Props:     types.ParagraphBlock{},
+		},
 	}
 
 	crdtMsg2 := types.CRDTOperationsMessage{

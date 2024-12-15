@@ -537,7 +537,7 @@ func Test_Document_Directory_Store_Queue_Limit_Same_DocumentID(t *testing.T) {
 func Test_Document_Directory_Store_Queue_Limit_Different_DocumentIDs(t *testing.T) {
 	transp := channel.NewTransport()
 
-	docTimestampThreshold := time.Second * 2
+	docTimestampThreshold := time.Second
 	docQueueSize := 10
 	docDir := "../../../../documents"
 
