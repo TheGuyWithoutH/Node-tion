@@ -802,29 +802,13 @@ func (n *node) CastAndSetOperation(op *types.CRDTOperation, target types.CRDTOp)
 		return err
 	}
 
-	// Explicitly cast Props field if target has Props
-	if addBlock, ok := target.(*types.CRDTAddBlock); ok {
-		props, err := n.CastAndSetProps(addBlock.BlockType, addBlock.Props)
-		if err != nil {
-			return err
-		}
-		addBlock.Props = dereferenceIfPropsPointer(props)
-	}
-	if updateBlock, ok := target.(*types.CRDTUpdateBlock); ok {
-		props, err := n.CastAndSetProps(updateBlock.BlockType, updateBlock.Props)
-		if err != nil {
-			return err
-		}
-		updateBlock.Props = dereferenceIfPropsPointer(props)
-	}
-
 	// Assign the dereferenced value to op.Operation
 	op.Operation = dereferenceIfOpPointer(target)
 	return nil
 }
 
 // CastAndSetProps casts the block to the correct type and sets it
-func (n *node) CastAndSetProps(blockType string, props interface{}) (types.BlockType, error) {
+func (n *node) CastAndSetProps(blockType types.BlockTypeName, props interface{}) (types.BlockType, error) {
 	byteProps, err := json.Marshal(props)
 	if err != nil {
 		return nil, err

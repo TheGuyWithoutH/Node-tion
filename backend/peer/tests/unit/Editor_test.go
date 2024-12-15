@@ -34,11 +34,11 @@ func Test_Editor_Simple_Update(t *testing.T) {
 		BlockID:     "block1",
 		Operation: types.CRDTAddBlock{
 			BlockType: types.HeadingBlockType,
-			Props:     types.DefaultBlockProps{
-			  BackgroundColor: "white",
-			  TextColor:       "black",
-			  TextAlignment:   "left",
-		  },
+			Props: types.DefaultBlockProps{
+				BackgroundColor: "white",
+				TextColor:       "black",
+				TextAlignment:   "left",
+			},
 		},
 	}
 
@@ -91,7 +91,7 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	crdt1 := types.CRDTAddBlock{
 		BlockType: types.ParagraphBlockType,
-		Props:     types.ParagraphBlock{},
+		Props:     types.DefaultBlockProps{},
 	}
 
 	crdtOp1 := types.CRDTOperation{
@@ -116,7 +116,7 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 
 	crdt3 := types.CRDTAddBlock{
 		BlockType: types.ParagraphBlockType,
-		Props:     types.ParagraphBlock{},
+		Props:     types.DefaultBlockProps{},
 	}
 
 	crdtOp3 := types.CRDTOperation{
@@ -186,7 +186,7 @@ func Test_Editor_Broadcast(t *testing.T) {
 				BlockID:     "block1",
 				Operation: types.CRDTAddBlock{
 					BlockType: types.NumberedListBlockType,
-					Props:     types.NumberedListBlock{},
+					Props:     types.DefaultBlockProps{},
 				},
 			}
 
@@ -329,7 +329,7 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 		BlockID:     "block1",
 		Operation: types.CRDTAddBlock{
 			BlockType: types.BulletedListBlockType,
-			Props:     types.BulletedListBlock{},
+			Props:     types.DefaultBlockProps{},
 		},
 	}
 
@@ -396,7 +396,7 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 		BlockID:     "block1",
 		Operation: types.CRDTAddBlock{
 			BlockType: types.ParagraphBlockType,
-			Props:     types.ParagraphBlock{},
+			Props:     types.DefaultBlockProps{},
 		},
 	}
 
@@ -415,7 +415,7 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 		BlockID:     "block1",
 		Operation: types.CRDTAddBlock{
 			BlockType: types.ParagraphBlockType,
-			Props:     types.ParagraphBlock{},
+			Props:     types.DefaultBlockProps{},
 		},
 	}
 

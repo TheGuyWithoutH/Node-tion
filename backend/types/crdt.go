@@ -27,76 +27,6 @@ func (c CRDTOperationsMessage) String() string {
 // HTML implements types.Message.
 func (c CRDTOperationsMessage) HTML() string { return c.String() }
 
-//AddBlock
-
-func (op *CRDTAddBlock) NewEmpty() CRDTOp {
-	return &CRDTAddBlock{}
-}
-
-func (op *CRDTAddBlock) Name() string {
-	return "CRDTAddBlock"
-}
-
-//RemoveBlock
-
-func (op *CRDTRemoveBlock) NewEmpty() CRDTOp {
-	return &CRDTRemoveBlock{}
-}
-
-func (op *CRDTRemoveBlock) Name() string {
-	return "CRDTRemoveBlock"
-}
-
-//UpdateBlock
-
-func (op *CRDTUpdateBlock) NewEmpty() CRDTOp {
-	return &CRDTUpdateBlock{}
-}
-
-func (op *CRDTUpdateBlock) Name() string {
-	return "CRDTUpdateBlock"
-}
-
-//InsertChar
-
-func (op *CRDTInsertChar) NewEmpty() CRDTOp {
-	return &CRDTInsertChar{}
-}
-
-func (op *CRDTInsertChar) Name() string {
-	return "CRDTInsertChar"
-}
-
-//DeleteChar
-
-func (op *CRDTDeleteChar) NewEmpty() CRDTOp {
-	return CRDTDeleteChar{}
-}
-
-func (op *CRDTDeleteChar) Name() string {
-	return "CRDTDeleteChar"
-}
-
-//AddMark
-
-func (op *CRDTAddMark) NewEmpty() CRDTOp {
-	return &CRDTAddMark{}
-}
-
-func (op *CRDTAddMark) Name() string {
-	return "CRDTAddMark"
-}
-
-//RemoveMark
-
-func (op *CRDTRemoveMark) NewEmpty() CRDTOp {
-	return &CRDTRemoveMark{}
-}
-
-func (op *CRDTRemoveMark) Name() string {
-	return "CRDTRemoveMark"
-}
-
 // ---------------------Data Strutures Functions------------------------
 // TextStyle
 
@@ -144,37 +74,13 @@ func (s *StyledText) ToJson() string {
 	return json
 }
 
-func (s *StyledText) NewEmpty() InlineContent {
-	return &StyledText{}
-}
-
-func (s *StyledText) Name() string {
-	return "StyledText"
-}
-
 // Link
-
-func (l *Link) NewEmpty() InlineContent {
-	return &Link{}
-}
-
-func (l *Link) Name() string {
-	return "Link"
-}
 
 func (l *Link) ToJson() string {
 	return ""
 }
 
 // ParagraphBlock
-
-func (b *ParagraphBlock) NewEmpty() BlockType {
-	return &ParagraphBlock{}
-}
-
-func (b *ParagraphBlock) Name() string {
-	return "ParagraphBlock"
-}
 
 func (b *ParagraphBlock) AddContent(content []CRDTInsertChar, style map[string]TextStyle) {
 	b.Content = addContentToBlock(content, style)
@@ -198,7 +104,7 @@ func (b *ParagraphBlock) ToJson() string {
 	json += "\"content\": [ "
 	for _, content := range b.Content {
 		if content != nil {
-			json += content.ToJson() + ","
+			json += SerializeInlineContent(content) + ","
 		}
 	}
 	json = json[:len(json)-1] // Remove the additional ","
@@ -206,7 +112,7 @@ func (b *ParagraphBlock) ToJson() string {
 	// Children
 	json += "\"children\": [ "
 	for _, child := range b.Children {
-		json += child.ToJson() + ","
+		json += SerializeBlock(child) + ","
 	}
 	json = json[:len(json)-1] // Remove the additional ","
 	json += "]}"
@@ -215,14 +121,6 @@ func (b *ParagraphBlock) ToJson() string {
 }
 
 // HeadingBlock
-
-func (b *HeadingBlock) NewEmpty() BlockType {
-	return &HeadingBlock{}
-}
-
-func (b *HeadingBlock) Name() string {
-	return "HeadingBlock"
-}
 
 func (b *HeadingBlock) ToJson() string {
 	json := "{"
@@ -238,14 +136,14 @@ func (b *HeadingBlock) ToJson() string {
 	// Content
 	json += "\"content\": [ "
 	for _, content := range b.Content {
-		json += content.ToJson() + ","
+		json += SerializeInlineContent(content) + ","
 	}
 	json = json[:len(json)-1] // Remove the additional ","
 	json += "],"
 	// Children
 	json += "\"children\": [ "
 	for _, child := range b.Children {
-		json += child.ToJson() + ","
+		json += SerializeBlock(child) + ","
 	}
 	json = json[:len(json)-1] // Remove the additional ","
 	json += "]}"
@@ -262,16 +160,6 @@ func (b *HeadingBlock) AddChildren(children []BlockType) {
 }
 
 // BulletedListBlock
-
-func (b *BulletedListBlock) NewEmpty() BlockType {
-	return &BulletedListBlock{}
-}
-
-func (b *BulletedListBlock) Name() string {
-	return "BulletedListBlock"
-}
-
-// NumberedListBlock implements BlockType.
 
 func (b *BulletedListBlock) AddContent(content []CRDTInsertChar, style map[string]TextStyle) {
 	b.Content = addContentToBlock(content, style)
@@ -290,14 +178,14 @@ func (b *BulletedListBlock) ToJson() string {
 	// Content
 	json += "\"content\": [ "
 	for _, content := range b.Content {
-		json += content.ToJson() + ","
+		json += SerializeInlineContent(content) + ","
 	}
 	json = json[:len(json)-1] // Remove the additional ","
 	json += "],"
 	// Children
 	json += "\"children\": [ "
 	for _, child := range b.Children {
-		json += child.ToJson() + ","
+		json += SerializeBlock(child) + ","
 	}
 	json = json[:len(json)-1] // Remove the additional ","
 	json += "]}"
@@ -310,14 +198,6 @@ func (b *BulletedListBlock) AddChildren(children []BlockType) {
 }
 
 // NumberedListBlock
-
-func (b *NumberedListBlock) NewEmpty() BlockType {
-	return &NumberedListBlock{}
-}
-
-func (b *NumberedListBlock) Name() string {
-	return "NumberedListBlock"
-}
 
 func (b *NumberedListBlock) AddContent(content []CRDTInsertChar, style map[string]TextStyle) {
 	b.Content = addContentToBlock(content, style)
@@ -340,14 +220,14 @@ func (b *NumberedListBlock) ToJson() string {
 	// Content
 	json += "\"content\": [ "
 	for _, content := range b.Content {
-		json += content.ToJson() + ","
+		json += SerializeInlineContent(content) + ","
 	}
 	json = json[:len(json)-1] // Remove the additional ","
 	json += "],"
 	// Children
 	json += "\"children\": [ "
 	for _, child := range b.Children {
-		json += child.ToJson() + ","
+		json += SerializeBlock(child) + ","
 	}
 	json = json[:len(json)-1] // Remove the additional ","
 	json += "]}"

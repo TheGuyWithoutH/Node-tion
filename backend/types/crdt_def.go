@@ -32,6 +32,8 @@ type TextStyle struct {
 	BackgroundColor string
 }
 
+type BlockTypeName string
+
 const (
 	ParagraphBlockType    BlockTypeName = "paragraph"
 	HeadingBlockType      BlockTypeName = "heading"
@@ -39,20 +41,6 @@ const (
 	NumberedListBlockType BlockTypeName = "numbered_list"
 	ImageBlockType        BlockTypeName = "image"
 	TableBlockType        BlockTypeName = "table"
-)
-
-const (
-	H1 HeadingLevel = 1
-	H2 HeadingLevel = 2
-	H3 HeadingLevel = 3
-	H4 HeadingLevel = 4
-)
-
-const (
-	Left    TextAlignment = "left"
-	Center  TextAlignment = "center"
-	Right   TextAlignment = "right"
-	Justify TextAlignment = "justify"
 )
 
 const ( // CRDTOp Operation Types
