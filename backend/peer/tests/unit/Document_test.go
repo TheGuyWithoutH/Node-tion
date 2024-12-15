@@ -162,8 +162,8 @@ func Test_Document_Compilation_1Peer_MultipleStyles(t *testing.T) {
 	block1ID := "1" + "@temp"
 	addBlock1 := types.CRDTAddBlock{
 		OpID:        block1ID,
-		AfterBlock:  "", // TODO
-		ParentBlock: "", // TODO
+		AfterBlock:  "",
+		ParentBlock: "",
 		BlockType:   types.ParagraphBlockType,
 		Props: types.DefaultBlockProps{
 			BackgroundColor: "default",
