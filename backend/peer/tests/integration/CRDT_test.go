@@ -256,8 +256,7 @@ func generateStringOps(addr, docID, str string) []types.CRDTOperation {
 
 	// Generate CRDTOperationsMessage
 	crdtOp := types.CRDTOperation{
-		Type:        types.CRDTAddBlock{}.Name(),
-		BlockType:   types.ParagraphBlock{}.Name(),
+		Type:        (&types.CRDTAddBlock{}).Name(),
 		Origin:      addr,
 		OperationID: 1,
 		DocumentID:  docID,
@@ -271,8 +270,7 @@ func generateStringOps(addr, docID, str string) []types.CRDTOperation {
 
 	for i, char := range str {
 		crdtOp := types.CRDTOperation{
-			Type:        types.CRDTInsertChar{}.Name(),
-			BlockType:   types.ParagraphBlock{}.Name(),
+			Type:        (&types.CRDTInsertChar{}).Name(),
 			Origin:      addr,
 			OperationID: uint64(i + 2),
 			DocumentID:  docID,
