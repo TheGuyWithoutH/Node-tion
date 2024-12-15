@@ -42,7 +42,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			return "", xerrors.Errorf("first operation must be a create block operation")
 		}
 		blockOp := Op1.Operation.(types.CRDTAddBlock)
-		block := blockOp.Props
+		block := n.CreateBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
 
 		// Mark Ops
 		// Create a map opID -> textStyle
@@ -440,4 +440,63 @@ func (n *node) processAndBroadcast(transactions types.CRDTOperationsMessage) err
 		return err
 	}
 	return n.Broadcast(msg)
+}
+
+func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlockProps, blockId string) types.BlockType {
+	switch blockType {
+	case types.ParagraphBlockType:
+		return &types.ParagraphBlock{
+			BlockType: nil,
+			Default:   props,
+			ID:        blockId,
+			Content:   nil,
+			Children:  nil,
+		}
+	case types.HeadingBlockType:
+		return &types.HeadingBlock{
+			BlockType: nil,
+			Default:   props,
+			ID:        blockId,
+			Level:     props.Level,
+			Content:   nil,
+			Children:  nil,
+		}
+	case types.BulletedListBlockType:
+		return &types.BulletedListBlock{
+			BlockType: nil,
+			Default:   props,
+			ID:        blockId,
+			Content:   nil,
+			Children:  nil,
+		}
+	case types.NumberedListBlockType:
+		return &types.NumberedListBlock{
+			BlockType: nil,
+			Default:   props,
+			ID:        blockId,
+			Content:   nil,
+			Children:  nil,
+		}
+	case types.ImageBlockType:
+		return &types.ImageBlock{
+			BlockType:    nil,
+			Default:      props,
+			ID:           blockId,
+			URL:          "",
+			Caption:      "",
+			PreviewWidth: 0,
+			Children:     nil,
+		}
+	case types.TableBlockType:
+		return &types.TableBlock{
+			BlockType: nil,
+			Default:   props,
+			ID:        blockId,
+			Content:   types.TableContent{},
+			Children:  nil,
+		}
+
+	default:
+		return nil
+	}
 }

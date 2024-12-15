@@ -57,16 +57,13 @@ func Test_Document_Compilation_1Peer(t *testing.T) {
 	block1ID := "1" + "@temp"
 	addBlock1 := types.CRDTAddBlock{
 		OpID:        block1ID,
-		AfterBlock:  "", // TODO
-		ParentBlock: "", // TODO
-		Props: &types.ParagraphBlock{
-			Default: types.DefaultBlockProps{
-				BackgroundColor: "default",
-				TextColor:       "default",
-				TextAlignment:   "left",
-			},
-			ID:      block1ID,
-			Content: []types.InlineContent{},
+		AfterBlock:  "",
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
 		},
 	}
 
@@ -98,15 +95,12 @@ func Test_Document_Compilation_1Peer(t *testing.T) {
 		OpID:        block2ID,
 		AfterBlock:  block1ID,
 		ParentBlock: "",
-		Props: &types.HeadingBlock{
-			Default: types.DefaultBlockProps{
-				BackgroundColor: "default",
-				TextColor:       "default",
-				TextAlignment:   "left",
-			},
-			ID:      block2ID,
-			Level:   types.H1,
-			Content: []types.InlineContent{},
+		BlockType:   types.HeadingBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+			Level:           types.H1,
 		},
 	}
 
@@ -158,6 +152,71 @@ func Test_Document_Compilation_1Peer(t *testing.T) {
 
 	expected = "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{\"bold\":true}}],\"children\":[]},{\"id\":\"8@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\",\"level\":1},\"content\":[{\"type\":\"text\",\"charIds\":[\"9@temp\",\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
 	require.JSONEq(t, expected, doc)
+}
+
+func Test_Document_Compilation_1Peer_MultipleStyles(t *testing.T) {
+	transp := channel.NewTransport()
+	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peer.Stop()
+
+	block1ID := "1" + "@temp"
+	addBlock1 := types.CRDTAddBlock{
+		OpID:        block1ID,
+		AfterBlock:  "", // TODO
+		ParentBlock: "", // TODO
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		},
+	}
+
+	// Populate the editor with some operations
+	//Add a block
+	err := peer.UpdateEditor([]types.CRDTOperation{{
+		Type:       types.CRDTAddBlockType,
+		Origin:     "temp",
+		DocumentID: "doc1",
+		BlockID:    block1ID,
+		Operation:  addBlock1,
+	}})
+	require.NoError(t, err)
+	// Add some text to the block
+	inserts := CreateInsertsFromString("Hello World!", "temp", block1ID, 2) // last opId is 13
+	err = peer.UpdateEditor(inserts)
+	require.NoError(t, err)
+
+	// Add MarkStyles to the text
+
+	// Add a bold mark to the text
+	boldMark := types.CRDTAddMark{
+		OpID: "15@temp",
+		Start: types.MarkStart{
+			Type: "Before",
+			OpID: "2@temp",
+		},
+		End: types.MarkEnd{
+			Type: "After",
+			OpID: "7@temp",
+		},
+		MarkType: types.Bold,
+		Options:  types.MarkOptions{},
+	}
+
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:       types.CRDTAddMarkType,
+		Origin:     "temp",
+		DocumentID: "doc1",
+		BlockID:    block1ID,
+		Operation:  boldMark,
+	},
+	})
+
+}
+
+func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
+
 }
 
 // Check that the CompileDocument can generate a json string from the editor of two peers

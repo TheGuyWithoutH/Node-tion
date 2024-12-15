@@ -29,19 +29,11 @@ func Test_Editor_Simple_Update(t *testing.T) {
 	crdt := types.CRDTAddBlock{
 		AfterBlock:  "block0",
 		ParentBlock: "block0",
-		BlockType:   "paragraph",
-		Props: &types.ParagraphBlock{
-			Default: types.DefaultBlockProps{
-				BackgroundColor: "white",
-				TextColor:       "black",
-				TextAlignment:   "left",
-			},
-			ID: "block1",
-			Content: []types.InlineContent{
-				&types.StyledText{
-					Text: "Hello, World!",
-				},
-			},
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "white",
+			TextColor:       "black",
+			TextAlignment:   "left",
 		},
 	}
 
