@@ -13,6 +13,9 @@ type CRDT interface {
 	// GetDocumentOps returns the document of the CRDT.
 	GetDocumentOps(docID string) map[string][]types.CRDTOperation
 
+	// CompileDocument compiles the document requested from the editor into a json string.
+	CompileDocument(docID string) (string, error)
+
 	// GetBlockOps returns the block of the CRDT.
 	GetBlockOps(docID, blockID string) []types.CRDTOperation
 
@@ -27,6 +30,8 @@ type CRDT interface {
 
 	// GetCRDTState returns the CRDT state of the document.
 	GetCRDTState(docID string) uint64
+
+	GetTmpID(id uint64) uint64
 }
 
 // Editor tells, for a given document referenced by a key, a bag of blocks

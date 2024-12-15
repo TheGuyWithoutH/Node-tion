@@ -3,13 +3,226 @@ package unit
 import (
 	z "Node-tion/backend/internal/testing"
 	"Node-tion/backend/transport/channel"
+	"Node-tion/backend/types"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
+
+// ----- Helper functions -----
+func CreateInsertsFromString(content string, addr string, blockID string, insertStart int) []types.CRDTOperation {
+	ops := make([]types.CRDTOperation, len(content))
+	for i, char := range content {
+		if i == 0 {
+			ops[i] = types.CRDTOperation{
+				Type:       types.CRDTInsertCharType,
+				Origin:     addr,
+				DocumentID: "doc1",
+				BlockID:    blockID,
+				Operation:  CreateInsertOp(strconv.Itoa(i+insertStart)+"@"+addr, "", string(char)),
+			}
+		} else {
+			ops[i] = types.CRDTOperation{
+				Type:       types.CRDTInsertCharType,
+				Origin:     addr,
+				DocumentID: "doc1",
+				BlockID:    blockID,
+				Operation:  CreateInsertOp(strconv.Itoa(i+insertStart)+"@"+addr, strconv.Itoa(i+insertStart-1)+"@"+addr, string(char)),
+			}
+		}
+	}
+	return ops
+}
+
+func CreateInsertOp(opID string, afterID string, content string) types.CRDTInsertChar {
+	return types.CRDTInsertChar{
+		OpID:      opID,
+		AfterID:   afterID,
+		Character: content,
+	}
+}
+
+// ----- Tests -----
+
+// Check that the CompileDocument can generate a json string from the editor of one peer
+func Test_Document_Compilation_1Peer(t *testing.T) {
+	transp := channel.NewTransport()
+	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peer.Stop()
+
+	block1ID := "1" + "@temp"
+	addBlock1 := types.CRDTAddBlock{
+		OpID:        block1ID,
+		AfterBlock:  "",
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		},
+	}
+
+	// Populate the editor with some operations
+	//Add a block
+	err := peer.UpdateEditor([]types.CRDTOperation{{
+		Type:       types.CRDTAddBlockType,
+		Origin:     "temp",
+		DocumentID: "doc1",
+		BlockID:    block1ID,
+		Operation:  addBlock1,
+	}})
+	require.NoError(t, err)
+	// Add some text to the block
+	inserts := CreateInsertsFromString("Hello!", "temp", block1ID, 2)
+	err = peer.UpdateEditor(inserts)
+	require.NoError(t, err)
+
+	// Compile the document
+	doc, err := peer.CompileDocument("doc1")
+	require.NoError(t, err)
+	expected := "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\": \"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{}}],\"children\":[]}]"
+
+	require.JSONEq(t, expected, doc)
+
+	// Add another block with the text "World!" and in bold
+	block2ID := "8" + "@temp"
+	addBlock2 := types.CRDTAddBlock{
+		OpID:        block2ID,
+		AfterBlock:  block1ID,
+		ParentBlock: "",
+		BlockType:   types.HeadingBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+			Level:           types.H1,
+		},
+	}
+
+	// Add a block
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:       types.CRDTAddBlockType,
+		Origin:     "temp",
+		DocumentID: "doc1",
+		BlockID:    block2ID,
+		Operation:  addBlock2,
+	},
+	})
+	require.NoError(t, err)
+
+	// Add some text to the block
+	inserts = CreateInsertsFromString("World!", "temp", block2ID, 9)
+	err = peer.UpdateEditor(inserts)
+	require.NoError(t, err)
+
+	// Add a bold mark to the text
+	boldMark := types.CRDTAddMark{
+		OpID: "15@temp",
+		Start: types.MarkStart{
+			Type: "Before",
+			OpID: "2@temp",
+		},
+		End: types.MarkEnd{
+			Type: "After",
+			OpID: "7@temp",
+		},
+		MarkType: types.Bold,
+		Options:  types.MarkOptions{},
+	}
+
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:       types.CRDTAddMarkType,
+		Origin:     "temp",
+		DocumentID: "doc1",
+		BlockID:    block1ID,
+		Operation:  boldMark,
+	},
+	})
+
+	require.NoError(t, err)
+
+	// Compile the document
+	doc, err = peer.CompileDocument("doc1")
+	require.NoError(t, err)
+
+	expected = "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{\"bold\":true}}],\"children\":[]},{\"id\":\"8@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\",\"level\":1},\"content\":[{\"type\":\"text\",\"charIds\":[\"9@temp\",\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
+	require.JSONEq(t, expected, doc)
+}
+
+func Test_Document_Compilation_1Peer_MultipleStyles(t *testing.T) {
+	transp := channel.NewTransport()
+	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peer.Stop()
+
+	block1ID := "1" + "@temp"
+	addBlock1 := types.CRDTAddBlock{
+		OpID:        block1ID,
+		AfterBlock:  "",
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		},
+	}
+
+	// Populate the editor with some operations
+	//Add a block
+	err := peer.UpdateEditor([]types.CRDTOperation{{
+		Type:       types.CRDTAddBlockType,
+		Origin:     "temp",
+		DocumentID: "doc1",
+		BlockID:    block1ID,
+		Operation:  addBlock1,
+	}})
+	require.NoError(t, err)
+	// Add some text to the block
+	inserts := CreateInsertsFromString("Hello World!", "temp", block1ID, 2) // last opId is 13
+	err = peer.UpdateEditor(inserts)
+	require.NoError(t, err)
+
+	// Add MarkStyles to the text
+
+	// Add a bold mark to the text
+	boldMark := types.CRDTAddMark{
+		OpID: "15@temp",
+		Start: types.MarkStart{
+			Type: "Before",
+			OpID: "2@temp",
+		},
+		End: types.MarkEnd{
+			Type: "After",
+			OpID: "7@temp",
+		},
+		MarkType: types.Bold,
+		Options:  types.MarkOptions{},
+	}
+
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:       types.CRDTAddMarkType,
+		Origin:     "temp",
+		DocumentID: "doc1",
+		BlockID:    block1ID,
+		Operation:  boldMark,
+	},
+	})
+
+}
+
+func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
+
+}
+
+// Check that the CompileDocument can generate a json string from the editor of two peers
+func Test_Document_Compilation_2Peers(t *testing.T) {
+
+}
 
 // Check that a document is stored in the correct directory.
 func Test_Document_Directory_Store(t *testing.T) {
@@ -67,6 +280,9 @@ func Test_Document_Directory_Store(t *testing.T) {
 	// > check that the file contains the document
 
 	file, err := os.ReadFile(fmt.Sprintf("%s/%s", docDir, fileName))
+	if err != nil {
+		t.Errorf("failed to read file: %v", err)
+	}
 	require.Equal(t, doc, string(file))
 
 	// remove the file
@@ -321,7 +537,7 @@ func Test_Document_Directory_Store_Queue_Limit_Same_DocumentID(t *testing.T) {
 func Test_Document_Directory_Store_Queue_Limit_Different_DocumentIDs(t *testing.T) {
 	transp := channel.NewTransport()
 
-	docTimestampThreshold := time.Second * 2
+	docTimestampThreshold := time.Second
 	docQueueSize := 10
 	docDir := "../../../../documents"
 

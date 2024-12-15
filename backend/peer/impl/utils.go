@@ -5,7 +5,12 @@ import (
 	"Node-tion/backend/types"
 	"crypto"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -363,10 +368,10 @@ func (n *node) GetRandomPeerFromCatalog(key string) string {
 		return ""
 	}
 
-	rndIdx := rand.Intn(len(peers))
+	rndIDx := rand.Intn(len(peers))
 	i := 0
 	for k := range peers {
-		if i == rndIdx {
+		if i == rndIDx {
 			return k
 		}
 		i++
@@ -467,12 +472,12 @@ func (a *Acceptor) Reset() {
 }
 
 // SetAcceptedProposal sets the accepted proposal of the node
-func (a *Acceptor) SetAcceptedProposal(val *types.PaxosValue, id uint) {
+func (a *Acceptor) SetAcceptedProposal(val *types.PaxosValue, ID uint) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	a.acceptedVal = val
-	a.acceptedID = id
+	a.acceptedID = ID
 }
 
 // GetAcceptedProposal gets the accepted proposal of the node
@@ -537,11 +542,11 @@ func (p *Proposer) GetProposalID() uint {
 }
 
 // SetProposalID sets the proposal ID
-func (p *Proposer) SetProposalID(id uint) {
+func (p *Proposer) SetProposalID(ID uint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.proposalID = id
+	p.proposalID = ID
 }
 
 // NewPromise increments the number of promises collected
@@ -577,33 +582,33 @@ func (p *Proposer) GetHighestAccepted() (*types.PaxosValue, uint) {
 }
 
 // SetHighestAcceptedProposal sets the highest accepted proposal
-func (p *Proposer) SetHighestAcceptedProposal(val *types.PaxosValue, id uint) {
+func (p *Proposer) SetHighestAcceptedProposal(val *types.PaxosValue, ID uint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.highestAccepted.SetAcceptedProposal(val, id)
+	p.highestAccepted.SetAcceptedProposal(val, ID)
 }
 
 // AddAcceptedProposal adds an accepted proposal
-func (p *Proposer) AddAcceptedProposal(id uint) { //, val string) {
+func (p *Proposer) AddAcceptedProposal(ID uint) { //, val string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if _, exists := p.acceptedProposals[id]; !exists {
-		p.acceptedProposals[id] = 0
+	if _, exists := p.acceptedProposals[ID]; !exists {
+		p.acceptedProposals[ID] = 0
 	}
-	p.acceptedProposals[id]++
+	p.acceptedProposals[ID]++
 }
 
 // LenAcceptedProposals returns the number of accepted proposals
-func (p *Proposer) LenAcceptedProposals(id uint) int {
+func (p *Proposer) LenAcceptedProposals(ID uint) int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if _, exists := p.acceptedProposals[id]; !exists {
+	if _, exists := p.acceptedProposals[ID]; !exists {
 		return 0
 	}
-	return int(p.acceptedProposals[id])
+	return int(p.acceptedProposals[ID])
 }
 
 // GetConsensus returns the consensus value
@@ -709,14 +714,18 @@ func (n *node) UpdateEditor(ops []types.CRDTOperation) error {
 
 	// apply the operation to the editor
 	for _, op := range ops {
-		if _, exists := n.editor.ed[op.DocumentId]; !exists {
-			n.editor.ed[op.DocumentId] = make(map[string][]types.CRDTOperation)
+		if _, exists := n.editor.ed[op.DocumentID]; !exists {
+			n.editor.ed[op.DocumentID] = make(map[string][]types.CRDTOperation)
 		}
 
-		if _, exists := n.editor.ed[op.DocumentId][op.BlockId]; !exists {
-			n.editor.ed[op.DocumentId][op.BlockId] = make([]types.CRDTOperation, 0)
+		if _, exists := n.editor.ed[op.DocumentID][op.BlockID]; !exists {
+			n.editor.ed[op.DocumentID][op.BlockID] = make([]types.CRDTOperation, 0)
 		}
-		n.editor.ed[op.DocumentId][op.BlockId] = append(n.editor.ed[op.DocumentId][op.BlockId], op)
+
+		// cast the operation to the correct type
+		n.CastOperation(&op)
+
+		n.editor.ed[op.DocumentID][op.BlockID] = append(n.editor.ed[op.DocumentID][op.BlockID], op)
 	}
 	return nil
 }
@@ -741,7 +750,141 @@ func (n *node) GetBlockOps(docID, blockID string) []types.CRDTOperation {
 
 	block := make([]types.CRDTOperation, len(n.editor.ed[docID][blockID]))
 	copy(block, n.editor.ed[docID][blockID])
+
 	return block
+}
+
+// CastOperation casts the operation to the correct type
+// necessary after having marshalled the struct and sent as a CRDTOperationsMessage
+func (n *node) CastOperation(op *types.CRDTOperation) {
+	var err error
+
+	switch op.Type {
+	case types.CRDTAddBlockType:
+		crdtOp := &types.CRDTAddBlock{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTRemoveBlockType:
+		crdtOp := &types.CRDTRemoveBlock{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTUpdateBlockType:
+		crdtOp := &types.CRDTUpdateBlock{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTInsertCharType:
+		crdtOp := &types.CRDTInsertChar{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTDeleteCharType:
+		crdtOp := &types.CRDTDeleteChar{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTAddMarkType:
+		crdtOp := &types.CRDTAddMark{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	case types.CRDTRemoveMarkType:
+		crdtOp := &types.CRDTRemoveMark{}
+		err = n.CastAndSetOperation(op, crdtOp)
+	default:
+		n.logCRDT.Error().Msg("Unknown operation type")
+		return
+	}
+
+	if err != nil {
+		n.logCRDT.Error().Err(err).Msg("Failed to cast operation")
+	}
+}
+
+// CastAndSetOperation casts the operation to the correct type and sets it
+func (n *node) CastAndSetOperation(op *types.CRDTOperation, target types.CRDTOp) error {
+	byteCrdt, err := json.Marshal(op.Operation)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(byteCrdt, target)
+	if err != nil {
+		return err
+	}
+
+	// Explicitly cast Props field if target has Props
+	if addBlock, ok := target.(*types.CRDTAddBlock); ok {
+		props, err := n.CastAndSetProps(addBlock.BlockType, addBlock.Props)
+		if err != nil {
+			return err
+		}
+		addBlock.Props = dereferenceIfPropsPointer(props)
+	}
+	if updateBlock, ok := target.(*types.CRDTUpdateBlock); ok {
+		props, err := n.CastAndSetProps(updateBlock.BlockType, updateBlock.Props)
+		if err != nil {
+			return err
+		}
+		updateBlock.Props = dereferenceIfPropsPointer(props)
+	}
+
+	// Assign the dereferenced value to op.Operation
+	op.Operation = dereferenceIfOpPointer(target)
+	return nil
+}
+
+// CastAndSetProps casts the block to the correct type and sets it
+func (n *node) CastAndSetProps(blockType string, props interface{}) (types.BlockType, error) {
+	byteProps, err := json.Marshal(props)
+	if err != nil {
+		return nil, err
+	}
+
+	switch blockType {
+	case types.ParagraphBlockType:
+		var paragraphBlock types.ParagraphBlock
+		err = json.Unmarshal(byteProps, &paragraphBlock)
+		return &paragraphBlock, err
+	case types.HeadingBlockType:
+		var headingBlock types.HeadingBlock
+		err = json.Unmarshal(byteProps, &headingBlock)
+		return &headingBlock, err
+	case types.BulletedListBlockType:
+		var bulletedListBlock types.BulletedListBlock
+		err = json.Unmarshal(byteProps, &bulletedListBlock)
+		return &bulletedListBlock, err
+	case types.NumberedListBlockType:
+		var numberedListBlock types.NumberedListBlock
+		err = json.Unmarshal(byteProps, &numberedListBlock)
+		return &numberedListBlock, err
+	default:
+		return nil, fmt.Errorf("unknown block type")
+	}
+}
+
+// Helper function to dereference a pointer if needed
+func dereferenceIfOpPointer(op types.CRDTOp) types.CRDTOp {
+	switch v := op.(type) {
+	case *types.CRDTAddBlock:
+		return *v
+	case *types.CRDTUpdateBlock:
+		return *v
+	case *types.CRDTInsertChar:
+		return *v
+	case *types.CRDTDeleteChar:
+		return *v
+	case *types.CRDTAddMark:
+		return *v
+	case *types.CRDTRemoveMark:
+		return *v
+	default:
+		return op
+	}
+}
+
+func dereferenceIfPropsPointer(props interface{}) interface{} {
+	switch v := props.(type) {
+	case *types.ParagraphBlock:
+		return *v
+	case *types.HeadingBlock:
+		return *v
+	case *types.BulletedListBlock:
+		return *v
+	case *types.NumberedListBlock:
+		return *v
+	default:
+		return props
+	}
 }
 
 // DocTimestampMap is the latest timestamp of the document saved in the directory
@@ -805,18 +948,19 @@ func (dtm *DocTimestampMap) DocSavedLen(docID string) int {
 
 type CRDTState struct {
 	sync.Mutex
-	state map[string]uint64
+	state map[string]uint64 // map of documentIDs latest OperationID
+	tmp   map[uint64]uint64 // map of tmpIDs to OperationIDs
 }
 
 func (c *CRDTState) GetState(docID string) uint64 {
 	c.Lock()
 	defer c.Unlock()
 
-	opId, exists := c.state[docID]
+	opID, exists := c.state[docID]
 	if !exists {
 		return 0
 	}
-	return opId
+	return opID
 
 }
 
@@ -827,6 +971,71 @@ func (c *CRDTState) SetState(docID string, state uint64) {
 	c.state[docID] = state
 }
 
+func (c *CRDTState) SetTmpID(tmpID, opID uint64) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.tmp[tmpID] = opID
+}
+
+func (c *CRDTState) GetTmpID(tmpID uint64) uint64 {
+	c.Lock()
+	defer c.Unlock()
+
+	opID, exists := c.tmp[tmpID]
+	if !exists {
+		return 0
+	}
+	return opID
+}
+
+func (c *CRDTState) ResetTmp() {
+	c.Lock()
+	defer c.Unlock()
+
+	c.tmp = make(map[uint64]uint64)
+}
+
 func (n *node) GetCRDTState(docID string) uint64 {
 	return n.crdtState.GetState(docID)
+}
+
+func (n *node) GetTmpID(id uint64) uint64 {
+	return n.crdtState.GetTmpID(id)
+}
+
+func (n *node) GetAddress() string {
+	return n.conf.Socket.GetAddress()
+}
+
+// ParseID extracts the ID before the "@" symbol and the username after it.
+func ParseID(input string) (uint64, string, error) {
+	// Split the input string on the "@" character.
+	parts := strings.Split(input, "@")
+	if len(parts) != 2 {
+		return 0, "", errors.New("invalid format: missing or too many '@' symbols")
+	}
+
+	// Convert the first part to uint64.
+	id, err := strconv.ParseUint(parts[0], 10, 64)
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid ID: %w", err)
+	}
+
+	// The username is the second part.
+	username := parts[1]
+
+	return id, username, nil
+}
+
+// ReconstructString constructs a string in the format "ID@username" from a uint64 ID and a string username.
+func ReconstructString(id uint64, username string) (string, error) {
+	// Validate the username to ensure it is not empty.
+	if username == "" {
+		return "", fmt.Errorf("username cannot be empty")
+	}
+
+	// Construct the string in the desired format.
+	result := fmt.Sprintf("%d@%s", id, username)
+	return result, nil
 }

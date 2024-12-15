@@ -7,10 +7,22 @@ type CRDTOperationsMessage struct {
 	Operations []CRDTOperation
 }
 
+// CRDTOp is an interface that defines the methods that a CRDT operation must implement.
 type CRDTOp interface{}
 
 type TextAlignment string
 type HeadingLevel int
+
+type MarkStart struct {
+	Type string
+	OpID string
+}
+
+type MarkEnd struct {
+	Type string
+	OpID string
+}
+
 type TextStyle struct {
 	Bold            bool
 	Italic          bool
@@ -19,6 +31,15 @@ type TextStyle struct {
 	TextColor       string
 	BackgroundColor string
 }
+
+const (
+	ParagraphBlockType    BlockTypeName = "paragraph"
+	HeadingBlockType      BlockTypeName = "heading"
+	BulletedListBlockType BlockTypeName = "bulleted_list"
+	NumberedListBlockType BlockTypeName = "numbered_list"
+	ImageBlockType        BlockTypeName = "image"
+	TableBlockType        BlockTypeName = "table"
+)
 
 const (
 	H1 HeadingLevel = 1
@@ -34,67 +55,194 @@ const (
 	Justify TextAlignment = "justify"
 )
 
+const ( // CRDTOp Operation Types
+	CRDTAddBlockType    = "addBlock"
+	CRDTRemoveBlockType = "removeBlock"
+	CRDTUpdateBlockType = "updateBlock"
+	CRDTInsertCharType  = "insert"
+	CRDTDeleteCharType  = "delete"
+	CRDTAddMarkType     = "addMark"
+	CRDTRemoveMarkType  = "removeMark"
+)
+
+const ( // Mark Types
+	Bold            = "bold"
+	Italic          = "italic"
+	Underline       = "underline"
+	Strikethrough   = "strikethrough"
+	TextColor       = "textColor"
+	BackgroundColor = "backgroundColor"
+)
+
+const StyledTextType = "styledText"
+
+const LinkType = "link"
+
+const ( // Heading Levels
+	H1 HeadingLevel = 1
+	H2 HeadingLevel = 2
+	H3 HeadingLevel = 3
+	H4 HeadingLevel = 4
+)
+
+const ( // Text Alignments
+	Left    TextAlignment = "left"
+	Center  TextAlignment = "center"
+	Right   TextAlignment = "right"
+	Justify TextAlignment = "justify"
+)
+
+var defaultBlockProps = DefaultBlockProps{
+	BackgroundColor: "white",
+	TextColor:       "black",
+	TextAlignment:   Left,
+}
+
+// BlockType is an interface that defines operations on blocks.
 type BlockType interface{}
+
+func SerializeBlock(block BlockType) string {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		return b.ToJson()
+	case *HeadingBlock:
+		return b.ToJson()
+	case *BulletedListBlock:
+		return b.ToJson()
+	case *NumberedListBlock:
+		return b.ToJson()
+	case *ImageBlock:
+		return b.ToJson()
+	case *TableBlock:
+		return b.ToJson()
+	default:
+		return "{}" // Fallback for unknown types
+	}
+}
+
+func AddContent(block BlockType, content []CRDTInsertChar, style map[string]TextStyle) {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		b.AddContent(content, style)
+	case *HeadingBlock:
+		b.AddContent(content, style)
+	case *BulletedListBlock:
+		b.AddContent(content, style)
+	case *NumberedListBlock:
+		b.AddContent(content, style)
+	case *ImageBlock:
+		b.AddContent(content, style)
+	case *TableBlock:
+		b.AddContent(content, style)
+	}
+}
+
+func AddChildren(block BlockType, children []BlockType) {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		b.AddChildren(children)
+	case *HeadingBlock:
+		b.AddChildren(children)
+	case *BulletedListBlock:
+		b.AddChildren(children)
+	case *NumberedListBlock:
+		b.AddChildren(children)
+	case *ImageBlock:
+		b.AddChildren(children)
+	case *TableBlock:
+		b.AddChildren(children)
+	}
+}
+
+// InlineContent is an interface that defines operations on inline content.
 type InlineContent interface{}
+
+func SerializeInlineContent(content InlineContent) string {
+	switch c := content.(type) {
+	case *StyledText:
+		return c.ToJson()
+	case *Link:
+		return c.ToJson()
+	default:
+		return "{}" // Fallback for unknown types
+	}
+}
+
+// TableContent is a struct that defines the content of a table.
 type TableContent struct{}
 
 // -------------------------------------------------------------------
 // Data Structures
 
+// ----------------------InlineContent------------------------
+
+// StyledText implements InlineContent.
 type StyledText struct {
 	InlineContent
-	Text            string
-	Styles          TextStyle
-	Color           string
-	BackgroundColor string
+	CharIds []string
+	Text    string
+	Styles  TextStyle
 }
 
+// Link implements InlineContent.
 type Link struct {
 	InlineContent
 	Content []StyledText
 	Href    string
 }
 
+// ----------------------Blocks------------------------
+
+// ParagraphBlock implements BlockType.
 type ParagraphBlock struct {
 	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Content  []InlineContent
 	Children []BlockType
 }
+
+// HeadingBlock implements BlockType.
 type HeadingBlock struct {
 	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Level    HeadingLevel
 	Content  []InlineContent
 	Children []BlockType
 }
+
+// BulletedListBlock implements BlockType.
 type BulletedListBlock struct {
 	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Content  []InlineContent
 	Children []BlockType
 }
+
 type NumberedListBlock struct {
 	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Content  []InlineContent
 	Children []BlockType
 }
+
 type ImageBlock struct {
+	BlockType
 	Default      DefaultBlockProps
-	Id           string
+	ID           string
 	URL          string
 	Caption      string
 	PreviewWidth uint
 	Children     []BlockType
 }
+
 type TableBlock struct {
+	BlockType
 	Default  DefaultBlockProps
-	Id       string
+	ID       string
 	Content  TableContent
 	Children []BlockType
 }
@@ -103,6 +251,7 @@ type DefaultBlockProps struct {
 	BackgroundColor string
 	TextColor       string
 	TextAlignment   TextAlignment
+	Level           HeadingLevel
 }
 
 // -------------------------------------------------------------------
@@ -110,57 +259,75 @@ type DefaultBlockProps struct {
 
 type CRDTOperation struct {
 	Type        string
-	BlockType   string
-
 	Origin      string
-	OperationId uint64 // Starts from 1
-	DocumentId  string // OperationId@Origin that creates the document
-	BlockId     string // OperationId@Origin that creates the block
+	OperationID uint64 // Starts from 1
+	DocumentID  string // OperationID@Origin that creates the document
+	BlockID     string // OperationID@Origin that creates the block
 	Operation   CRDTOp
 }
 
-type CRDTAddBlock[T BlockType] struct {
+type CRDTAddBlock struct {
 	CRDTOp
+	OpID        string
 	AfterBlock  string
 	ParentBlock string
-	Props       T
+	BlockType   BlockTypeName
+	Props       DefaultBlockProps
 }
 
+// CRDTRemoveBlock implements CRDTOp.
 type CRDTRemoveBlock struct {
 	CRDTOp
+	OpID         string
 	RemovedBlock string
 }
 
-type CRDTUpdateBlock[T BlockType] struct {
+// CRDTUpdateBlock implements CRDTOp.
+type CRDTUpdateBlock struct {
 	CRDTOp
+	OpID         string
 	UpdatedBlock string
 	AfterBlock   string
 	ParentBlock  string
-	Props        T
+	BlockType    BlockTypeName
+	Props        DefaultBlockProps
 }
 
+// CRDTInsertChar implements CRDTOp.
 type CRDTInsertChar struct {
 	CRDTOp
+	OpID      string
 	AfterID   string
 	Character string
 }
 
+// CRDTDeleteChar implements CRDTOp.
 type CRDTDeleteChar struct {
 	CRDTOp
+	OpID      string
 	RemovedID string
 }
 
+// CRDTAddMark implements CRDTOp.
 type CRDTAddMark struct {
 	CRDTOp
-	Start    struct{}
-	End      struct{}
-	MarkType TextStyle
-	Options  struct{}
+	OpID     string
+	Start    MarkStart
+	End      MarkEnd
+	MarkType string
+	Options  MarkOptions
 }
 
+// CRDTRemoveMark implements CRDTOp.
 type CRDTRemoveMark struct {
 	CRDTOp
-	Start    struct{}
-	End      struct{}
-	MarkType TextStyle
+	OpID     string
+	Start    MarkStart
+	End      MarkEnd
+	MarkType string
+}
+
+type MarkOptions struct {
+	Color string
+	Href  string
 }

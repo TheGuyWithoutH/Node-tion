@@ -3,6 +3,7 @@ import { AppSidebar } from "./components/app-sidebar";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Editor from "./components/editor";
 import Home from "./components/home";
+import Peer from "./components/peer";
 
 const router = createBrowserRouter([
   {
@@ -12,6 +13,10 @@ const router = createBrowserRouter([
   {
     path: "/editor",
     element: <Editor />,
+  },
+  {
+    path: "/add-peer",
+    element: <Peer />,
   },
 ]);
 

@@ -52,6 +52,8 @@ export function ForwardSearchRequest(arg1:number,arg2:string,arg3:regexp.Regexp,
 
 export function GetAck(arg1:string):Promise<any|boolean>;
 
+export function GetAddress():Promise<string>;
+
 export function GetBlockOps(arg1:string,arg2:string):Promise<Array<types.CRDTOperation>>;
 
 export function GetCRDTState(arg1:string):Promise<number>;
@@ -153,6 +155,8 @@ export function Start():Promise<void>;
 export function StatusMessageCallback(arg1:types.Message,arg2:transport.Packet):Promise<void>;
 
 export function Stop():Promise<void>;
+
+export function StoreDocument(arg1:string,arg2:string):Promise<void>;
 
 export function TLCMessageCallback(arg1:types.Message,arg2:transport.Packet):Promise<void>;
 

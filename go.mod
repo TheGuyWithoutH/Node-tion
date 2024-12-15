@@ -10,6 +10,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.27.5
 	github.com/wailsapp/wails/v2 v2.9.2
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 )
 
@@ -44,7 +45,6 @@ require (
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
-	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.19.0 // indirect

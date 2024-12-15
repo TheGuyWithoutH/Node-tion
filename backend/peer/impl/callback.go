@@ -38,12 +38,6 @@ func (n *node) RumorsMessageCallback(msg types.Message, pkt transport.Packet) er
 		if n.view.AddRumorView(rumor, rumor.Origin) {
 			expectedRumor = true // set to true if (at least one) rumor is expected
 
-			//// if CRDT message, update the editor
-			//err := n.CRDTMessageUpdate(rumor)
-			//if err != nil {
-			//	return xerrors.Errorf("Failed to update editor: %v", err)
-			//}
-
 			// process the rumor
 			err := n.ProcessRumor(rumor, pkt)
 			if err != nil {
@@ -80,25 +74,6 @@ func (n *node) RumorsMessageCallback(msg types.Message, pkt transport.Packet) er
 	}
 	return nil
 }
-
-//// CRDTMessageUpdate updates the Editor with the CRDT operations
-//func (n *node) CRDTMessageUpdate(rumor types.Rumor) error {
-//	// if CRDT message, update the editor
-//	if rumor.Msg.Type == "crdtoperations" {
-//		// unmarshal the rumor message payload
-//		crdtMsg := types.CRDTOperationsMessage{}
-//		err := n.conf.MessageRegistry.UnmarshalMessage(rumor.Msg, &crdtMsg)
-//		if err != nil {
-//			return xerrors.Errorf("message is not a CRDTMessage")
-//		}
-//		// update the editor
-//		err = n.UpdateEditor(crdtMsg.Operations)
-//		if err != nil {
-//			return xerrors.Errorf("Failed to update editor: %v", err)
-//		}
-//	}
-//	return nil
-//}
 
 // ProcessRumor processes the rumor
 func (n *node) ProcessRumor(rumor types.Rumor, pkt transport.Packet) error {
@@ -739,7 +714,7 @@ func (n *node) CRDTOperationsMessageCallback(msg types.Message, pkt transport.Pa
 	}
 
 	n.logCRDT.Info().Msgf("Received CRDTOperationsMessage from %s, I am %s", pkt.Header.Source, n.conf.Socket.GetAddress())
-	
+
 	err := n.UpdateEditor(crdtMsg.Operations)
 	if err != nil {
 		return xerrors.Errorf("Failed to update editor: %v", err)

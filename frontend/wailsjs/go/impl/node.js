@@ -90,6 +90,10 @@ export function GetAck(arg1) {
   return window['go']['impl']['node']['GetAck'](arg1);
 }
 
+export function GetAddress() {
+  return window['go']['impl']['node']['GetAddress']();
+}
+
 export function GetBlockOps(arg1, arg2) {
   return window['go']['impl']['node']['GetBlockOps'](arg1, arg2);
 }
@@ -292,6 +296,10 @@ export function StatusMessageCallback(arg1, arg2) {
 
 export function Stop() {
   return window['go']['impl']['node']['Stop']();
+}
+
+export function StoreDocument(arg1, arg2) {
+  return window['go']['impl']['node']['StoreDocument'](arg1, arg2);
 }
 
 export function TLCMessageCallback(arg1, arg2) {
