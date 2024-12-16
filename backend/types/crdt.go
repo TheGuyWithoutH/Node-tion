@@ -295,6 +295,7 @@ func addContentToBlock(content []CRDTInsertChar, style map[string]TextStyle) []I
 				})
 				// Reset the stringContent
 				stringContent = ""
+				charIds = nil
 			}
 		}
 		stringContent += string(char.Character)
@@ -317,4 +318,68 @@ func addContentToBlock(content []CRDTInsertChar, style map[string]TextStyle) []I
 	}
 
 	return inlineContents
+}
+
+func SerializeBlock(block BlockType) string {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		return b.ToJson()
+	case *HeadingBlock:
+		return b.ToJson()
+	case *BulletedListBlock:
+		return b.ToJson()
+	case *NumberedListBlock:
+		return b.ToJson()
+	case *ImageBlock:
+		return b.ToJson()
+	case *TableBlock:
+		return b.ToJson()
+	default:
+		return "{}" // Fallback for unknown types
+	}
+}
+
+func AddContent(block BlockType, content []CRDTInsertChar, style map[string]TextStyle) {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		b.AddContent(content, style)
+	case *HeadingBlock:
+		b.AddContent(content, style)
+	case *BulletedListBlock:
+		b.AddContent(content, style)
+	case *NumberedListBlock:
+		b.AddContent(content, style)
+	case *ImageBlock:
+		b.AddContent(content, style)
+	case *TableBlock:
+		b.AddContent(content, style)
+	}
+}
+
+func AddChildren(block BlockType, children []BlockType) {
+	switch b := block.(type) {
+	case *ParagraphBlock:
+		b.AddChildren(children)
+	case *HeadingBlock:
+		b.AddChildren(children)
+	case *BulletedListBlock:
+		b.AddChildren(children)
+	case *NumberedListBlock:
+		b.AddChildren(children)
+	case *ImageBlock:
+		b.AddChildren(children)
+	case *TableBlock:
+		b.AddChildren(children)
+	}
+}
+
+func SerializeInlineContent(content InlineContent) string {
+	switch c := content.(type) {
+	case *StyledText:
+		return c.ToJson()
+	case *Link:
+		return c.ToJson()
+	default:
+		return "{}" // Fallback for unknown types
+	}
 }

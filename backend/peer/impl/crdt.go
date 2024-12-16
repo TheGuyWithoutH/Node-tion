@@ -28,9 +28,18 @@ func (n *node) CompileDocument(docID string) (string, error) {
 
 	finalDoc := make(map[string]types.BlockType, len(editor))
 
-	// Loop through the blocks of the document
+	// Loop through the blocks of the document -> By order of BlockID
 	// Subsequent blocks may be children and should therefore be added to the parent block
-	for _, ops := range editor {
+
+	blockIDs := make([]string, 0, len(editor))
+	for blockID := range editor {
+		blockIDs = append(blockIDs, blockID)
+	}
+	// Sort the blockIDs
+	blockIDs = sortOpIDs(blockIDs)
+
+	for id := range blockIDs {
+		ops := editor[blockIDs[id]]
 		// Filter the insert operations
 		insertOps := n.FilterOps(ops, types.CRDTInsertCharType)
 		// Sort the ops and remove the chars that are marked for deletion
@@ -42,6 +51,8 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			return "", xerrors.Errorf("first operation must be a create block operation")
 		}
 		blockOp := Op1.Operation.(types.CRDTAddBlock)
+		blockOp.OpID = strconv.FormatUint(Op1.OperationID, 10) + "@" + Op1.Origin
+
 		block := n.CreateBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
 
 		// Mark Ops
@@ -83,7 +94,6 @@ func (n *node) CompileDocument(docID string) (string, error) {
 		}
 
 		types.AddContent(block, sortedChars, textStyles)
-		finalDoc[blockOp.OpID] = block
 
 		// Check if the block has parents
 		if blockOp.ParentBlock != "" {
@@ -92,7 +102,9 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			if parentBlock == nil {
 				return "", xerrors.Errorf("parent block not found")
 			}
-			types.AddChildren(block, []types.BlockType{block})
+			types.AddChildren(parentBlock, []types.BlockType{block})
+		} else {
+			finalDoc[blockOp.OpID] = block
 		}
 	}
 
@@ -101,24 +113,44 @@ func (n *node) CompileDocument(docID string) (string, error) {
 
 	// We need to iterate over the blocks in the correct order:
 	// Get the indices of the blocks and sort them by the block id
-	blockOps := make([]string, 0, len(finalDoc))
-	for i := range finalDoc {
-		blockOps = append(blockOps, i)
+	docBlockOps := make([]string, 0, len(finalDoc))
+	for opID := range finalDoc {
+		docBlockOps = append(docBlockOps, opID)
 	}
-	// Sort the blockOps
-	sort.Slice(blockOps, func(i, j int) bool {
-		return blockOps[i] < blockOps[j]
-	})
+	// Sort the docBlockOps
+	docBlockOps = sortOpIDs(docBlockOps)
 
-	for i := range blockOps {
-		n.logCRDT.Debug().Msgf("block %s being compiled", blockOps[i])
-		block := finalDoc[blockOps[i]]
+	for i := range docBlockOps {
+		n.logCRDT.Debug().Msgf("block %s being compiled", docBlockOps[i])
+		block := finalDoc[docBlockOps[i]]
 		finalJson += types.SerializeBlock(block) + ","
 	}
 	finalJson = finalJson[:len(finalJson)-1] // Remove the additional ","
 	finalJson += "]"
 
 	return finalJson, nil
+}
+
+func sortOpIDs(ops []string) []string {
+
+	sort.Slice(ops, func(i, j int) bool {
+		split1 := strings.Split(ops[i], "@")
+		split2 := strings.Split(ops[j], "@")
+		opID1, err := strconv.Atoi(split1[0])
+		if err != nil {
+			return false
+		}
+		opID2, err := strconv.Atoi(split2[0])
+		if err != nil {
+			return false
+		}
+		if opID1 == opID2 {
+			return split1[1] < split2[1]
+		}
+		return opID1 < opID2
+	})
+	return ops
+
 }
 
 func (n *node) AddMark(textStyle types.TextStyle, toAdd types.CRDTAddMark) types.TextStyle {
@@ -167,6 +199,7 @@ func (n *node) FilterOps(ops []types.CRDTOperation, opType string) []types.CRDTO
 
 // SortInsertOps sorts the operations in the block by their afterID and then by their Operation id.
 // It also removes the characters that are marked for deletion.
+// Fills in the opID field of the insert operations
 func (n *node) SortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOperation) []types.CRDTInsertChar {
 	sort.Slice(ops, func(i, j int) bool {
 		// Cast the operations to the correct type
@@ -213,7 +246,9 @@ func (n *node) SortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOpe
 	// Turn the operations into a slice of CRDTInsertChar
 	var insertOps []types.CRDTInsertChar
 	for _, op := range ops {
-		insertOps = append(insertOps, op.Operation.(types.CRDTInsertChar))
+		insertOp := op.Operation.(types.CRDTInsertChar)
+		insertOp.OpID = strconv.FormatUint(op.OperationID, 10) + "@" + op.Origin
+		insertOps = append(insertOps, insertOp)
 	}
 
 	// Remove the characters that are marked for deletion
