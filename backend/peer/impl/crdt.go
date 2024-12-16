@@ -3,13 +3,14 @@ package impl
 import (
 	"Node-tion/backend/types"
 	"fmt"
-	"golang.org/x/xerrors"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 /*CompileDocument compiles the document requested from the editor into a json string.
@@ -458,12 +459,13 @@ func (n *node) updateBlockReferences(ref *string) (string, error) {
 		n.logCRDT.Warn().Msg("updateBlockReferences: empty reference")
 		return "", nil
 	}
-	id, username, err := ParseID(*ref)
+	id, _, err := ParseID(*ref)
 	if err != nil {
 		n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)
 		return "", err
 	}
 	id = n.crdtState.GetTmpID(id)
+	username := n.conf.Socket.GetAddress()
 	res, err := ReconstructString(id, username)
 	if err != nil {
 		n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)

@@ -158,6 +158,6 @@ func Test_SaveTransactions_TempIDMappingWithEditor(t *testing.T) {
 
 	err = json.Unmarshal(bs, &addOp)
 	require.NoError(t, err)
-	require.Equal(t, addOp.AfterBlock, "2@temp")
+	require.Equal(t, addOp.AfterBlock, "2@"+node.GetAddr())
 
 }
