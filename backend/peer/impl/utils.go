@@ -843,6 +843,8 @@ func dereferenceIfOpPointer(op types.CRDTOp) types.CRDTOp {
 		return *v
 	case *types.CRDTUpdateBlock:
 		return *v
+	case *types.CRDTRemoveBlock:
+		return *v
 	case *types.CRDTInsertChar:
 		return *v
 	case *types.CRDTDeleteChar:
