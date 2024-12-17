@@ -183,37 +183,52 @@ const useOperationsHook = (documentId: string) => {
 
   const sendOperations = () => {
     setDocument([]);
-    // Fix addBlock operations
-    const fixedOps = fixAddBlockOperations(operationsHistory);
 
-    console.log("Sending operations", fixedOps);
+    // If there are no operations, only update the document from the server
+    if (!operationsHistory.length) {
+      // Get the new document from the server and update the local document
+      CompileDocument("doc1")
+        .then((doc) => {
+          console.log(doc);
+          setDocument(JSON.parse(doc));
+        })
+        .catch((err) => {
+          console.error("Error getting document", err);
+          setDocument(mockDocument);
+        });
+    } else {
+      // Fix addBlock operations
+      const fixedOps = fixAddBlockOperations(operationsHistory);
 
-    SaveTransactions(
-      new types.CRDTOperationsMessage({
-        Operations: fixedOps,
-      })
-    )
-      .then((res) => {
-        console.log("Operations sent", res);
-        setDocument([]);
-        setOperationsHistory([]);
-        setNextTempOpNumber(1);
+      console.log("Sending operations", fixedOps);
 
-        // Get the new document from the server and update the local document
-        CompileDocument(documentId)
-          .then((doc) => {
-            console.log(doc);
-            setDocument(JSON.parse(doc));
-          })
-          .catch((err) => {
-            console.error("Error getting document", err);
-            setDocument(mockDocument);
-          });
-      })
-      .catch((err) => {
-        console.error("Error sending operations", err);
-        setDocument(mockDocument);
-      });
+      SaveTransactions(
+        new types.CRDTOperationsMessage({
+          Operations: fixedOps,
+        })
+      )
+        .then((res) => {
+          console.log("Operations sent", res);
+          setDocument([]);
+          setOperationsHistory([]);
+          setNextTempOpNumber(1);
+
+          // Get the new document from the server and update the local document
+          CompileDocument("doc1")
+            .then((doc) => {
+              console.log(doc);
+              setDocument(JSON.parse(doc));
+            })
+            .catch((err) => {
+              console.error("Error getting document", err);
+              setDocument(mockDocument);
+            });
+        })
+        .catch((err) => {
+          console.error("Error sending operations", err);
+          setDocument(mockDocument);
+        });
+    }
   };
 
   useEffect(() => {
