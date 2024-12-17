@@ -30,53 +30,53 @@ func (c CRDTOperationsMessage) HTML() string { return c.String() }
 // ---------------------Data Strutures Functions------------------------
 // TextStyle
 
-func (t *TextStyle) ToJson() string {
+func (t *TextStyle) ToJSON() string {
 	// If the style is present, we need to add it to the JSON, if false, we do not need to add it
-	json := "{ "
+	JSON := "{ "
 	if t.Bold {
-		json += "\"bold\": " + strconv.FormatBool(t.Bold) + ","
+		JSON += "\"bold\": " + strconv.FormatBool(t.Bold) + ","
 	}
 	if t.Italic {
-		json += "\"italic\": " + strconv.FormatBool(t.Italic) + ","
+		JSON += "\"italic\": " + strconv.FormatBool(t.Italic) + ","
 	}
 	if t.Underline {
-		json += "\"underline\": " + strconv.FormatBool(t.Underline) + ","
+		JSON += "\"underline\": " + strconv.FormatBool(t.Underline) + ","
 	}
 	if t.Strikethrough {
-		json += "\"strikethrough\": " + strconv.FormatBool(t.Strikethrough) + ","
+		JSON += "\"strikethrough\": " + strconv.FormatBool(t.Strikethrough) + ","
 	}
 	if t.TextColor != "" {
-		json += "\"textColor\": \"" + t.TextColor + "\","
+		JSON += "\"textColor\": \"" + t.TextColor + "\","
 	}
 	if t.BackgroundColor != "" {
-		json += "\"backgroundColor\": \"" + t.BackgroundColor + "\","
+		JSON += "\"backgroundColor\": \"" + t.BackgroundColor + "\","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "}"
-	return json
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "}"
+	return JSON
 }
 
 // StyledText
 
-func (s *StyledText) ToJson() string {
+func (s *StyledText) ToJSON() string {
 
-	json := "{"
-	json += "\"type\": \"" + "text" + "\","
-	json += "\"charIds\": ["
-	for _, charId := range s.CharIds {
-		json += "\"" + charId + "\","
+	JSON := "{"
+	JSON += "\"type\": \"" + "text" + "\","
+	JSON += "\"charIds\": ["
+	for _, charId := range s.CharIDs {
+		JSON += "\"" + charId + "\","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "],"
-	json += "\"text\": \"" + s.Text + "\","
-	json += "\"styles\": " + s.Styles.ToJson()
-	json += "}"
-	return json
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "],"
+	JSON += "\"text\": \"" + s.Text + "\","
+	JSON += "\"styles\": " + s.Styles.ToJSON()
+	JSON += "}"
+	return JSON
 }
 
 // Link
 
-func (l *Link) ToJson() string {
+func (l *Link) ToJSON() string {
 	return ""
 }
 
@@ -90,65 +90,65 @@ func (b *ParagraphBlock) AddChildren(children []BlockType) {
 	b.Children = append(b.Children, children...)
 }
 
-func (b *ParagraphBlock) ToJson() string {
-	json := "{"
-	json += "\"id\": \"" + b.ID + "\","
-	json += "\"type\": \"" + "paragraph" + "\","
+func (b *ParagraphBlock) ToJSON() string {
+	JSON := "{"
+	JSON += "\"id\": \"" + b.ID + "\","
+	JSON += "\"type\": \"" + "paragraph" + "\","
 	// Props
-	json += "\"props\" : {"
-	json += "\"textColor\": \"" + b.Default.TextColor + "\","
-	json += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
-	json += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
-	json += "},"
+	JSON += "\"props\" : {"
+	JSON += "\"textColor\": \"" + b.Default.TextColor + "\","
+	JSON += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
+	JSON += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
+	JSON += "},"
 	// Content
-	json += "\"content\": [ "
+	JSON += "\"content\": [ "
 	for _, content := range b.Content {
 		if content != nil {
-			json += SerializeInlineContent(content) + ","
+			JSON += SerializeInlineContent(content) + ","
 		}
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "],"
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "],"
 	// Children
-	json += "\"children\": [ "
+	JSON += "\"children\": [ "
 	for _, child := range b.Children {
-		json += SerializeBlock(child) + ","
+		JSON += SerializeBlock(child) + ","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "]}"
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "]}"
 
-	return json
+	return JSON
 }
 
 // HeadingBlock
 
-func (b *HeadingBlock) ToJson() string {
-	json := "{"
-	json += "\"id\": \"" + b.ID + "\","
-	json += "\"type\": \"" + "heading" + "\","
+func (b *HeadingBlock) ToJSON() string {
+	JSON := "{"
+	JSON += "\"id\": \"" + b.ID + "\","
+	JSON += "\"type\": \"" + "heading" + "\","
 	// Props
-	json += "\"props\" : {"
-	json += "\"level\": " + strconv.Itoa(int(b.Level)) + ","
-	json += "\"textColor\": \"" + b.Default.TextColor + "\","
-	json += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
-	json += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
-	json += "},"
+	JSON += "\"props\" : {"
+	JSON += "\"level\": " + strconv.Itoa(int(b.Level)) + ","
+	JSON += "\"textColor\": \"" + b.Default.TextColor + "\","
+	JSON += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
+	JSON += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
+	JSON += "},"
 	// Content
-	json += "\"content\": [ "
+	JSON += "\"content\": [ "
 	for _, content := range b.Content {
-		json += SerializeInlineContent(content) + ","
+		JSON += SerializeInlineContent(content) + ","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "],"
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "],"
 	// Children
-	json += "\"children\": [ "
+	JSON += "\"children\": [ "
 	for _, child := range b.Children {
-		json += SerializeBlock(child) + ","
+		JSON += SerializeBlock(child) + ","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "]}"
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "]}"
 
-	return json
+	return JSON
 }
 
 func (b *HeadingBlock) AddContent(content []CRDTInsertChar, style map[string]TextStyle) {
@@ -165,32 +165,32 @@ func (b *BulletedListBlock) AddContent(content []CRDTInsertChar, style map[strin
 	b.Content = addContentToBlock(content, style)
 
 }
-func (b *BulletedListBlock) ToJson() string {
-	json := "{"
-	json += "\"id\": \"" + b.ID + "\","
-	json += "\"type\": \"" + "bulletListItem" + "\","
+func (b *BulletedListBlock) ToJSON() string {
+	JSON := "{"
+	JSON += "\"id\": \"" + b.ID + "\","
+	JSON += "\"type\": \"" + "bulletListItem" + "\","
 	// Props
-	json += "\"props\" : {"
-	json += "\"textColor\": \"" + b.Default.TextColor + "\","
-	json += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
-	json += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
-	json += "},"
+	JSON += "\"props\" : {"
+	JSON += "\"textColor\": \"" + b.Default.TextColor + "\","
+	JSON += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
+	JSON += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
+	JSON += "},"
 	// Content
-	json += "\"content\": [ "
+	JSON += "\"content\": [ "
 	for _, content := range b.Content {
-		json += SerializeInlineContent(content) + ","
+		JSON += SerializeInlineContent(content) + ","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "],"
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "],"
 	// Children
-	json += "\"children\": [ "
+	JSON += "\"children\": [ "
 	for _, child := range b.Children {
-		json += SerializeBlock(child) + ","
+		JSON += SerializeBlock(child) + ","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "]}"
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "]}"
 
-	return json
+	return JSON
 }
 
 func (b *BulletedListBlock) AddChildren(children []BlockType) {
@@ -207,32 +207,32 @@ func (b *NumberedListBlock) AddChildren(children []BlockType) {
 	b.Children = append(b.Children, children...)
 }
 
-func (b *NumberedListBlock) ToJson() string {
-	json := "{"
-	json += "\"id\": \"" + b.ID + "\","
-	json += "\"type\": \"" + "numberedListItem" + "\","
+func (b *NumberedListBlock) ToJSON() string {
+	JSON := "{"
+	JSON += "\"id\": \"" + b.ID + "\","
+	JSON += "\"type\": \"" + "numberedListItem" + "\","
 	// Props
-	json += "\"props\" : {"
-	json += "\"textColor\": \"" + b.Default.TextColor + "\","
-	json += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
-	json += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
-	json += "},"
+	JSON += "\"props\" : {"
+	JSON += "\"textColor\": \"" + b.Default.TextColor + "\","
+	JSON += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
+	JSON += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
+	JSON += "},"
 	// Content
-	json += "\"content\": [ "
+	JSON += "\"content\": [ "
 	for _, content := range b.Content {
-		json += SerializeInlineContent(content) + ","
+		JSON += SerializeInlineContent(content) + ","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "],"
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "],"
 	// Children
-	json += "\"children\": [ "
+	JSON += "\"children\": [ "
 	for _, child := range b.Children {
-		json += SerializeBlock(child) + ","
+		JSON += SerializeBlock(child) + ","
 	}
-	json = json[:len(json)-1] // Remove the additional ","
-	json += "]}"
+	JSON = JSON[:len(JSON)-1] // Remove the additional ","
+	JSON += "]}"
 
-	return json
+	return JSON
 }
 
 // ImageBlock
@@ -245,7 +245,7 @@ func (b *ImageBlock) AddChildren(children []BlockType) {
 	b.Children = append(b.Children, children...)
 }
 
-func (b *ImageBlock) ToJson() string {
+func (b *ImageBlock) ToJSON() string {
 	return ""
 }
 
@@ -260,7 +260,7 @@ func (b *TableBlock) AddChildren(children []BlockType) {
 
 }
 
-func (b *TableBlock) ToJson() string {
+func (b *TableBlock) ToJSON() string {
 	return ""
 }
 
@@ -289,7 +289,7 @@ func addContentToBlock(content []CRDTInsertChar, style map[string]TextStyle) []I
 			// If the style is different, we need to create a new InlineContent
 			if len(stringContent) > 0 {
 				styledTexts = append(styledTexts, StyledText{
-					CharIds: charIds,
+					CharIDs: charIds,
 					Text:    strings.Clone(stringContent),
 					Styles:  previousStyles,
 				})
@@ -306,13 +306,13 @@ func addContentToBlock(content []CRDTInsertChar, style map[string]TextStyle) []I
 	// We need to add the last block of text
 	if len(stringContent) > 0 {
 		styledTexts = append(styledTexts, StyledText{
-			CharIds: charIds,
+			CharIDs: charIds,
 			Text:    strings.Clone(stringContent),
 			Styles:  previousStyles,
 		})
 	}
 
-	var inlineContents []InlineContent = make([]InlineContent, len(styledTexts))
+	var inlineContents = make([]InlineContent, len(styledTexts))
 	for i, styledText := range styledTexts {
 		inlineContents[i] = &styledText
 	}
@@ -323,17 +323,17 @@ func addContentToBlock(content []CRDTInsertChar, style map[string]TextStyle) []I
 func SerializeBlock(block BlockType) string {
 	switch b := block.(type) {
 	case *ParagraphBlock:
-		return b.ToJson()
+		return b.ToJSON()
 	case *HeadingBlock:
-		return b.ToJson()
+		return b.ToJSON()
 	case *BulletedListBlock:
-		return b.ToJson()
+		return b.ToJSON()
 	case *NumberedListBlock:
-		return b.ToJson()
+		return b.ToJSON()
 	case *ImageBlock:
-		return b.ToJson()
+		return b.ToJSON()
 	case *TableBlock:
-		return b.ToJson()
+		return b.ToJSON()
 	default:
 		return "{}" // Fallback for unknown types
 	}
@@ -376,9 +376,9 @@ func AddChildren(block BlockType, children []BlockType) {
 func SerializeInlineContent(content InlineContent) string {
 	switch c := content.(type) {
 	case *StyledText:
-		return c.ToJson()
+		return c.ToJSON()
 	case *Link:
-		return c.ToJson()
+		return c.ToJSON()
 	default:
 		return "{}" // Fallback for unknown types
 	}

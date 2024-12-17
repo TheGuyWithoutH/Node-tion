@@ -13,10 +13,10 @@ import (
 	"golang.org/x/xerrors"
 )
 
-/*CompileDocument compiles the document requested from the editor into a json string.
+/*CompileDocument compiles the document requested from the editor into a JSON string.
  * Algorithm:
  * 1. Get the document editor.
- * 2. For each block in the editor, open a new block in the json string.
+ * 2. For each block in the editor, open a new block in the JSON string.
  * 3. For each op in the block, sort the ops by the afterID and then by the operation id.
  * 4. Apply the non mark operations.
  * 5. Apply the mark operations.
@@ -31,16 +31,21 @@ func (n *node) CompileDocument(docID string) (string, error) {
 	var CRDTAddBlockOps []types.CRDTOperation
 	childrenAddBlockOps := make(map[string][]types.CRDTOperation) //parentBlock -> addBlockOpChildren
 
-	// Loop through the blocks of the document -> By order of BlockID
+	// Loop through the blocks of the document
 	// Subsequent blocks may be children and should therefore be added to the parent block
-
 	for _, ops := range editor {
-		//ops := editor[blockIDs[id]]
 		// Filter the insert operations
-		insertOps := n.FilterOps(ops, types.CRDTInsertCharType)
+		insertOps, updatedBlock, removed := n.filterOps(ops, types.CRDTInsertCharType)
+		if removed {
+			n.logCRDT.Debug().Msgf("block removed")
+			continue
+		}
+
 		// Sort the ops and remove the chars that are marked for deletion
-		removeOps := n.FilterOps(ops, types.CRDTDeleteCharType)
-		sortedChars := n.SortInsertOps(insertOps, removeOps)
+		removeOps, _, _ := n.filterOps(ops, types.CRDTDeleteCharType)
+		sortedChars := n.sortInsertOps(insertOps, removeOps)
+
+		// ---------- Block Ops
 		// Create a new block, this assumes that the first op is an addBlock op
 		Op1 := ops[0]
 		if Op1.Type != types.CRDTAddBlockType {
@@ -48,14 +53,15 @@ func (n *node) CompileDocument(docID string) (string, error) {
 		}
 		blockOp := Op1.Operation.(types.CRDTAddBlock)
 		blockOp.OpID = strconv.FormatUint(Op1.OperationID, 10) + "@" + Op1.Origin
+		blockOp = n.updateBlock(blockOp, updatedBlock) // Updates the block with the updated block props if applicable
 
 		block := n.CreateBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
 
-		// Mark Ops
+		// ---------- Mark Ops
 		// Create a map opID -> textStyle
 		textStyles := make(map[string]types.TextStyle, len(sortedChars))
 		// Apply the addMark operations
-		addMarkOps := n.FilterOps(ops, types.CRDTAddMarkType)
+		addMarkOps, _, _ := n.filterOps(ops, types.CRDTAddMarkType)
 		for _, op := range addMarkOps {
 			addMark := op.Operation.(types.CRDTAddMark)
 			startFound := false
@@ -64,7 +70,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 					startFound = true
 				}
 				if startFound {
-					textStyles[char.OpID] = n.AddMark(textStyles[char.OpID], addMark)
+					textStyles[char.OpID] = n.addMark(textStyles[char.OpID], addMark)
 				}
 				if char.OpID == addMark.End.OpID {
 					break
@@ -72,7 +78,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			}
 		}
 		// Remove the marks
-		deleteMarkOps := n.FilterOps(ops, types.CRDTRemoveMarkType)
+		deleteMarkOps, _, _ := n.filterOps(ops, types.CRDTRemoveMarkType)
 		for _, op := range deleteMarkOps {
 			deleteMark := op.Operation.(types.CRDTRemoveMark)
 			startFound := false
@@ -81,7 +87,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 					startFound = true
 				}
 				if startFound {
-					textStyles[char.OpID] = n.RemoveMark(textStyles[char.OpID], deleteMark.MarkType)
+					textStyles[char.OpID] = n.removeMark(textStyles[char.OpID], deleteMark.MarkType)
 				}
 				if char.OpID == deleteMark.End.OpID {
 					break
@@ -89,6 +95,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			}
 		}
 
+		// ----- Adding the content to the block
 		types.AddContent(block, sortedChars, textStyles)
 		finalDoc[blockOp.OpID] = block
 		n.logCRDT.Debug().Msgf("block %s added to finalDoc", blockOp.OpID)
@@ -122,8 +129,8 @@ func (n *node) CompileDocument(docID string) (string, error) {
 
 	}
 
-	// Now that we have the final document, we can convert it to a json string
-	finalJson := "[ "
+	// Now that we have the final document, we can convert it to a JSON string
+	finalJSON := "[ "
 
 	// We need to iterate over the blocks in the correct order:
 	// Get the indices of the blocks and sort them by the block id
@@ -133,15 +140,49 @@ func (n *node) CompileDocument(docID string) (string, error) {
 	for _, blockID := range docBlockOps {
 		n.logCRDT.Debug().Msgf("block %s being compiled", blockID)
 		block := finalDoc[blockID]
-		finalJson += types.SerializeBlock(block) + ","
+		finalJSON += types.SerializeBlock(block) + ","
 	}
-	finalJson = finalJson[:len(finalJson)-1] // Remove the additional ","
-	finalJson += "]"
+	finalJSON = finalJSON[:len(finalJSON)-1] // Remove the additional ","
+	finalJSON += "]"
 
-	return finalJson, nil
+	return finalJSON, nil
 }
 
-func (n *node) AddMark(textStyle types.TextStyle, toAdd types.CRDTAddMark) types.TextStyle {
+func (n *node) updateBlockProps(blockProps types.DefaultBlockProps, updatedProps types.DefaultBlockProps) types.DefaultBlockProps {
+
+	if updatedProps.Level != 0 {
+		blockProps.Level = updatedProps.Level
+	}
+	if updatedProps.BackgroundColor != "" {
+		blockProps.BackgroundColor = updatedProps.BackgroundColor
+	}
+	if updatedProps.TextColor != "" {
+		blockProps.TextColor = updatedProps.TextColor
+	}
+	if updatedProps.TextAlignment != "" {
+		blockProps.TextAlignment = updatedProps.TextAlignment
+	}
+
+	return blockProps
+}
+
+func (n *node) updateBlock(blockOp types.CRDTAddBlock, updatedBlock *types.CRDTUpdateBlock) types.CRDTAddBlock {
+	if updatedBlock != nil {
+		blockOp.Props = n.updateBlockProps(blockOp.Props, updatedBlock.Props)
+		if updatedBlock.BlockType != "" {
+			blockOp.BlockType = updatedBlock.BlockType
+		}
+		if updatedBlock.AfterBlock != "" {
+			blockOp.AfterBlock = updatedBlock.AfterBlock
+		}
+		if updatedBlock.ParentBlock != "" {
+			blockOp.ParentBlock = updatedBlock.ParentBlock
+		}
+	}
+	return blockOp
+}
+
+func (n *node) addMark(textStyle types.TextStyle, toAdd types.CRDTAddMark) types.TextStyle {
 
 	switch toAdd.MarkType {
 	case types.Bold:
@@ -159,7 +200,7 @@ func (n *node) AddMark(textStyle types.TextStyle, toAdd types.CRDTAddMark) types
 	return textStyle
 }
 
-func (n *node) RemoveMark(textStyle types.TextStyle, toRemove string) types.TextStyle {
+func (n *node) removeMark(textStyle types.TextStyle, toRemove string) types.TextStyle {
 	switch toRemove {
 	case types.Bold:
 		textStyle.Bold = false
@@ -174,19 +215,27 @@ func (n *node) RemoveMark(textStyle types.TextStyle, toRemove string) types.Text
 	return textStyle
 }
 
-// FilterOps filters the insert operations from the operations.
-func (n *node) FilterOps(ops []types.CRDTOperation, opType string) []types.CRDTOperation {
-	var insertOps []types.CRDTOperation
+// filterOps filters the opType operations from the block's operations op and checks if the block is removed or updated
+// Returns the filtered operations, the UpdateBlockOp if applicable and  a boolean indicating if the block is removed
+func (n *node) filterOps(ops []types.CRDTOperation, opType string) ([]types.CRDTOperation, *types.CRDTUpdateBlock, bool) {
+	var filteredOps []types.CRDTOperation
+	var updateBlockOp types.CRDTUpdateBlock
 	for _, op := range ops {
+		if op.Type == types.CRDTRemoveBlockType {
+			return nil, &updateBlockOp, true
+		}
 		if op.Type == opType {
-			insertOps = append(insertOps, op)
+			filteredOps = append(filteredOps, op)
+		}
+		if op.Type == types.CRDTUpdateBlockType {
+			updateBlockOp = op.Operation.(types.CRDTUpdateBlock)
 		}
 	}
-	return insertOps
+	return filteredOps, &updateBlockOp, false
 }
 
 // SortAddBlockOpIDs sorts the operations in the block by their afterBlockID and then by their Operation id.
-// Returns the blockIds in the correct order of generation
+// Returns the blockIDs in the correct order of generation
 func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
 
 	sort.Slice(ops, func(i, j int) bool {
@@ -227,23 +276,29 @@ func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
 		return afterOp1 < afterOp2
 	})
 
-	// Turn the operations into a slice of blockIds
-	var blockIds []string
+	// Turn the operations into a slice of blockIDs
+	var blockIDs []string
 	for _, op := range ops {
-		blockIds = append(blockIds, strconv.FormatUint(op.OperationID, 10)+"@"+op.Origin)
+		blockIDs = append(blockIDs, strconv.FormatUint(op.OperationID, 10)+"@"+op.Origin)
 	}
 
-	return blockIds
+	return blockIDs
 }
 
-// SortInsertOps sorts the operations in the block by their afterID and then by their Operation id.
+// sortInsertOps sorts the operations in the block by their afterID and then by their Operation id.
 // It also removes the characters that are marked for deletion.
 // Fills in the opID field of the insert operations
-func (n *node) SortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOperation) []types.CRDTInsertChar {
+func (n *node) sortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOperation) []types.CRDTInsertChar {
 	sort.Slice(ops, func(i, j int) bool {
 		// Cast the operations to the correct type
-		insertOp1 := ops[i].Operation.(types.CRDTInsertChar)
-		insertOp2 := ops[j].Operation.(types.CRDTInsertChar)
+		insertOp1, ok := ops[i].Operation.(types.CRDTInsertChar)
+		if !ok {
+			n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar: %v", insertOp1)
+		}
+		insertOp2, ok := ops[j].Operation.(types.CRDTInsertChar)
+		if !ok {
+			n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar: %v", insertOp2)
+		}
 
 		if insertOp1.AfterID == "" {
 			return true
@@ -261,8 +316,8 @@ func (n *node) SortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOpe
 		afterAddr1 := split1[1]
 
 		split2 := strings.Split(insertOp2.AfterID, "@")
-		afterOp2, err := strconv.Atoi(split2[0])
-		if err != nil {
+		afterOp2, err2 := strconv.Atoi(split2[0])
+		if err2 != nil {
 			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
 		}
 		afterAddr2 := split2[1]
@@ -285,7 +340,10 @@ func (n *node) SortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOpe
 	// Turn the operations into a slice of CRDTInsertChar
 	var insertOps []types.CRDTInsertChar
 	for _, op := range ops {
-		insertOp := op.Operation.(types.CRDTInsertChar)
+		insertOp, ok := op.Operation.(types.CRDTInsertChar)
+		if !ok {
+			n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar")
+		}
 		insertOp.OpID = strconv.FormatUint(op.OperationID, 10) + "@" + op.Origin
 		insertOps = append(insertOps, insertOp)
 	}
@@ -293,7 +351,10 @@ func (n *node) SortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOpe
 	// Remove the characters that are marked for deletion
 	for _, op := range toRemove {
 		// Cast the operation to the correct type
-		removeOp := op.Operation.(types.CRDTDeleteChar)
+		removeOp, err := op.Operation.(types.CRDTDeleteChar)
+		if err {
+			n.logCRDT.Error().Msgf("failed to cast operation to CRDTDeleteChar")
+		}
 		for i, insertOp := range insertOps {
 			// Cast the operation to the correct type
 			if insertOp.OpID == removeOp.RemovedID {
@@ -559,13 +620,13 @@ func (n *node) processAndBroadcast(transactions types.CRDTOperationsMessage) err
 	return n.Broadcast(msg)
 }
 
-func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlockProps, blockId string) types.BlockType {
+func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlockProps, blockID string) types.BlockType {
 	switch blockType {
 	case types.ParagraphBlockType:
 		return &types.ParagraphBlock{
 			BlockType: nil,
 			Default:   props,
-			ID:        blockId,
+			ID:        blockID,
 			Content:   nil,
 			Children:  nil,
 		}
@@ -573,7 +634,7 @@ func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlo
 		return &types.HeadingBlock{
 			BlockType: nil,
 			Default:   props,
-			ID:        blockId,
+			ID:        blockID,
 			Level:     props.Level,
 			Content:   nil,
 			Children:  nil,
@@ -582,7 +643,7 @@ func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlo
 		return &types.BulletedListBlock{
 			BlockType: nil,
 			Default:   props,
-			ID:        blockId,
+			ID:        blockID,
 			Content:   nil,
 			Children:  nil,
 		}
@@ -590,7 +651,7 @@ func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlo
 		return &types.NumberedListBlock{
 			BlockType: nil,
 			Default:   props,
-			ID:        blockId,
+			ID:        blockID,
 			Content:   nil,
 			Children:  nil,
 		}
@@ -598,7 +659,7 @@ func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlo
 		return &types.ImageBlock{
 			BlockType:    nil,
 			Default:      props,
-			ID:           blockId,
+			ID:           blockID,
 			URL:          "",
 			Caption:      "",
 			PreviewWidth: 0,
@@ -608,7 +669,7 @@ func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlo
 		return &types.TableBlock{
 			BlockType: nil,
 			Default:   props,
-			ID:        blockId,
+			ID:        blockID,
 			Content:   types.TableContent{},
 			Children:  nil,
 		}

@@ -96,7 +96,7 @@ type TableContent struct{}
 // StyledText implements InlineContent.
 type StyledText struct {
 	InlineContent
-	CharIds []string
+	CharIDs []string
 	Text    string
 	Styles  TextStyle
 }

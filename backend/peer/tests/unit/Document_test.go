@@ -49,7 +49,7 @@ func CreateInsertOp(afterID string, content string) types.CRDTInsertChar {
 
 // ----- Tests -----
 
-// Check that the CompileDocument can generate a json string from the editor of one peer
+// Check that the CompileDocument can generate a JSON string from the editor of one peer
 func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 	transp := channel.NewTransport()
 	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
@@ -437,7 +437,146 @@ func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
 	require.JSONEq(t, expected, doc)
 }
 
-// Check that the CompileDocument can generate a json string from the editor of two peers
+func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
+	transp := channel.NewTransport()
+	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peer.Stop()
+
+	block1ID := "1" + "@temp"
+	addBlock1 := types.CRDTAddBlock{
+		AfterBlock:  "",
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		},
+	}
+
+	// Populate the editor with some operations
+	//Add a block
+	err := peer.UpdateEditor([]types.CRDTOperation{{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "temp",
+		OperationID: 1,
+		DocumentID:  "doc1",
+		BlockID:     block1ID,
+		Operation:   addBlock1,
+	}})
+	require.NoError(t, err)
+	// Add some text to the block
+	inserts := CreateInsertsFromString("Hello!", "temp", block1ID, 2)
+	err = peer.UpdateEditor(inserts)
+	require.NoError(t, err)
+
+	// Remove the block
+	removeBlock := types.CRDTRemoveBlock{
+		RemovedBlock: block1ID,
+	}
+
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:        types.CRDTRemoveBlockType,
+		Origin:      "temp",
+		OperationID: 8,
+		DocumentID:  "doc1",
+		BlockID:     block1ID,
+		Operation:   removeBlock,
+	}})
+	require.NoError(t, err)
+
+	// Compile the document
+	doc, err := peer.CompileDocument("doc1")
+	require.NoError(t, err)
+	expected := "[]"
+	require.JSONEq(t, expected, doc)
+
+	// Add another block with the text "World!"
+	block2ID := "9" + "@temp"
+	addBlock2 := types.CRDTAddBlock{
+		AfterBlock:  "", //TODO: Should this be block1ID?
+		ParentBlock: "",
+		BlockType:   types.HeadingBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+			Level:           types.H1,
+		},
+	}
+
+	// Add a block
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "temp",
+		OperationID: 9,
+		DocumentID:  "doc1",
+		BlockID:     block2ID,
+		Operation:   addBlock2,
+	},
+	})
+	require.NoError(t, err)
+
+	// Add some text to the block
+	inserts = CreateInsertsFromString("World!", "temp", block2ID, 10)
+	err = peer.UpdateEditor(inserts)
+	require.NoError(t, err)
+
+	// Update the block
+	updateBlock := types.CRDTUpdateBlock{
+		UpdatedBlock: block2ID,
+		BlockType:    types.ParagraphBlockType,
+	}
+
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:        types.CRDTUpdateBlockType,
+		Origin:      "temp",
+		OperationID: 16,
+		DocumentID:  "doc1",
+		BlockID:     block2ID,
+		Operation:   updateBlock,
+	},
+	})
+	require.NoError(t, err)
+
+	// Compile the document
+	doc, err = peer.CompileDocument("doc1")
+	require.NoError(t, err)
+
+	expected = "[{\"id\":\"9@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
+	require.JSONEq(t, expected, doc)
+
+	// Update the block again to a heading block and change the blockProps
+	updateBlock = types.CRDTUpdateBlock{
+		UpdatedBlock: block2ID,
+		BlockType:    types.HeadingBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "white",
+			TextColor:       "blue",
+			TextAlignment:   "center",
+			Level:           types.H2,
+		},
+	}
+
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:        types.CRDTUpdateBlockType,
+		Origin:      "temp",
+		OperationID: 17,
+		DocumentID:  "doc1",
+		BlockID:     block2ID,
+		Operation:   updateBlock,
+	}})
+	require.NoError(t, err)
+
+	// Compile the document
+	doc, err = peer.CompileDocument("doc1")
+	require.NoError(t, err)
+
+	expected = "[{\"id\":\"9@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"blue\",\"backgroundColor\":\"white\",\"textAlignment\":\"center\",\"level\":2},\"content\":[{\"type\":\"text\",\"charIds\":[\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
+
+}
+
+// Check that the CompileDocument can generate a JSON string from the editor of two peers
 func Test_Document_Compilation_2Peers(t *testing.T) {
 }
 
