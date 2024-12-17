@@ -19,10 +19,11 @@ import {
 } from "@/components/ui/form";
 
 import { Input } from "@/components/ui/input";
+import { Toaster } from "../ui/toaster";
 import { useEffect, useState } from "react";
 
 const FormSchema = z.object({
-  ipAddress: z.string().regex(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/, {
+  ipAddress: z.string().regex(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{2,6}$/, {
     message: "Please enter a valid IP address.",
   }),
 });
