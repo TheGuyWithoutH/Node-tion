@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 	"path/filepath"
 
 	"github.com/jackpal/gateway"
@@ -96,8 +97,8 @@ func main() {
 	conf := peer.Configuration{
 		Socket:              sock,
 		MessageRegistry:     standard.NewRegistry(),
-		AntiEntropyInterval: 0,
-		HeartbeatInterval:   0,
+		AntiEntropyInterval: time.Second * 5,
+		HeartbeatInterval:   time.Second * 1,
 		AckTimeout:          3,
 		ContinueMongering:   0.5,
 		ChunkSize:           8192,
