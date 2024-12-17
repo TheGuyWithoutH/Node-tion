@@ -11,6 +11,7 @@ import { extractCharIds } from "@/lib/operations/charMapUtils";
 import { EMPTY_DOC, EMPTY_DOC_HISTORY, MapCharID } from "@/types/docs.type";
 import { fixAddBlockOperations } from "@/lib/operations/operationMerger";
 import { CRDTOpType } from "@/types/operations.type";
+import { flushSync } from "react-dom";
 
 const useOperationsHook = (documentId: string) => {
   const [nextTempOpNumber, setNextTempOpNumber] = useState(100);
@@ -18,9 +19,7 @@ const useOperationsHook = (documentId: string) => {
     types.CRDTOperation[]
   >([]);
   const [document, setDocument] = useState<PartialBlock[]>([]);
-  const [charIds, setCharIds] = useState<MapCharID>(
-    extractCharIds(mockDocument)
-  );
+  const [charIds, setCharIds] = useState<MapCharID>({});
   const [editorView, setEditorView] = useState<ReactNode>();
 
   // Helper to find node position by id
@@ -56,92 +55,96 @@ const useOperationsHook = (documentId: string) => {
               const oldDoc = oldState.doc;
               let addBlockOps: types.CRDTOperation[] = [];
 
-              setCharIds((prevCharIds) => {
-                let nextCharIds = { ...prevCharIds } as Record<
-                  string,
-                  string[]
-                >;
+              // Perform the operations in a flushSync to ensure that the state is updated
+              flushSync(() => {
+                setCharIds((prevCharIds) => {
+                  let nextCharIds = { ...prevCharIds } as Record<
+                    string,
+                    string[]
+                  >;
 
-                // We need to embed the operations mapping in the next op number logic
-                // to ensure that we get the right previous operation number
-                setNextTempOpNumber((prevNextTempOpNumber) => {
-                  // Perform the mapping of the transaction to operations
-                  const [operations, newNextTempOpId, _nextCharIds] =
-                    mapTransactionToOperations(
-                      tr,
-                      oldDoc,
-                      prevNextTempOpNumber,
-                      prevCharIds,
-                      documentId
-                    );
-
-                  if (tr.steps.length && operations.length) {
-                    // Add the operations to the history
-                    setOperationsHistory((prev) => {
-                      let newOperations = operations;
-                      let newOperationHistory = [...prev, ...newOperations];
-
-                      // Check last operation in history if it's addBlock
-                      if (newOperationHistory.length > 1) {
-                        const lastOp =
-                          newOperationHistory[newOperationHistory.length - 2];
-                        const currentOp =
-                          newOperationHistory[newOperationHistory.length - 1];
-
-                        if (
-                          lastOp.Type === CRDTOpType.AddBlock &&
-                          currentOp.Type === CRDTOpType.UpdateBlock &&
-                          (!currentOp.BlockID.endsWith("@temp") ||
-                            !lastOp.BlockID.endsWith("@temp"))
-                        ) {
-                          // Merge logic
-                          const mergedOp = new types.CRDTOperation({
-                            ...lastOp,
-                            BlockID: currentOp.BlockID,
-                            BlockType:
-                              lastOp.Operation.Props.type ||
-                              currentOp.Operation.Props.type,
-                            Operation: {
-                              ...lastOp.Operation,
-                              Props: {
-                                ...lastOp.Operation.Props,
-                                ...currentOp.Operation.Props,
-                              },
-                              AfterBlock:
-                                currentOp.Operation.AfterBlock ||
-                                lastOp.Operation.AfterBlock,
-                              ParentBlock:
-                                currentOp.Operation.ParentBlock ||
-                                lastOp.Operation.ParentBlock,
-                            },
-                          });
-
-                          // Remove the last two and replace with merged
-                          newOperationHistory = newOperationHistory.slice(
-                            0,
-                            -2
-                          );
-                          newOperationHistory.push(mergedOp);
-                          newOperations = [mergedOp];
-                        }
-                      }
-
-                      // Extract addBlock operations
-                      addBlockOps = newOperations.filter(
-                        (op) => op.Type === CRDTOpType.AddBlock
+                  // We need to embed the operations mapping in the next op number logic
+                  // to ensure that we get the right previous operation number
+                  setNextTempOpNumber((prevNextTempOpNumber) => {
+                    // Perform the mapping of the transaction to operations
+                    const [operations, newNextTempOpId, _nextCharIds] =
+                      mapTransactionToOperations(
+                        tr,
+                        oldDoc,
+                        prevNextTempOpNumber,
+                        prevCharIds
                       );
 
-                      return newOperationHistory;
-                    });
+                    console.log("Next char ids", _nextCharIds);
 
-                    // Update the charIds
-                    nextCharIds = _nextCharIds;
-                  }
+                    if (tr.steps.length && operations.length) {
+                      // Add the operations to the history
+                      setOperationsHistory((prev) => {
+                        let newOperations = operations;
+                        let newOperationHistory = [...prev, ...newOperations];
 
-                  return newNextTempOpId;
+                        // Check last operation in history if it's addBlock
+                        if (newOperationHistory.length > 1) {
+                          const lastOp =
+                            newOperationHistory[newOperationHistory.length - 2];
+                          const currentOp =
+                            newOperationHistory[newOperationHistory.length - 1];
+
+                          if (
+                            lastOp.Type === CRDTOpType.AddBlock &&
+                            currentOp.Type === CRDTOpType.UpdateBlock &&
+                            (!currentOp.BlockID.endsWith("@temp") ||
+                              !lastOp.BlockID.endsWith("@temp"))
+                          ) {
+                            // Merge logic
+                            const mergedOp = new types.CRDTOperation({
+                              ...lastOp,
+                              BlockID: currentOp.BlockID,
+                              BlockType:
+                                lastOp.Operation.Props.type ||
+                                currentOp.Operation.Props.type,
+                              Operation: {
+                                ...lastOp.Operation,
+                                Props: {
+                                  ...lastOp.Operation.Props,
+                                  ...currentOp.Operation.Props,
+                                },
+                                AfterBlock:
+                                  currentOp.Operation.AfterBlock ||
+                                  lastOp.Operation.AfterBlock,
+                                ParentBlock:
+                                  currentOp.Operation.ParentBlock ||
+                                  lastOp.Operation.ParentBlock,
+                              },
+                            });
+
+                            // Remove the last two and replace with merged
+                            newOperationHistory = newOperationHistory.slice(
+                              0,
+                              -2
+                            );
+                            newOperationHistory.push(mergedOp);
+                            newOperations = [mergedOp];
+                          }
+                        }
+
+                        // Extract addBlock operations
+                        addBlockOps = newOperations.filter(
+                          (op) => op.Type === CRDTOpType.AddBlock
+                        );
+
+                        return newOperationHistory;
+                      });
+
+                      // Update the charIds
+                      nextCharIds = _nextCharIds;
+                    }
+
+                    return newNextTempOpId;
+                  });
+
+                  return nextCharIds;
                 });
-
-                return nextCharIds;
               });
 
               return { addBlockOps };
@@ -156,7 +159,8 @@ const useOperationsHook = (documentId: string) => {
               let changed = false;
               for (const op of addBlockOps) {
                 const oldBlockID = op.BlockID;
-                const newBlockID = op.OperationId + "@temp";
+                console.log("Add block operation", op);
+                const newBlockID = op.OperationID + "@temp";
 
                 const pos = findNodePosById(newState.doc, oldBlockID);
                 if (pos >= 0) {
@@ -191,10 +195,12 @@ const useOperationsHook = (documentId: string) => {
         .then((doc) => {
           console.log(doc);
           setDocument(JSON.parse(doc));
+          setCharIds(extractCharIds(JSON.parse(doc)));
         })
         .catch((err) => {
           console.error("Error getting document", err);
           setDocument(mockDocument);
+          setCharIds(extractCharIds(mockDocument));
         });
     } else {
       // Fix addBlock operations
@@ -218,15 +224,18 @@ const useOperationsHook = (documentId: string) => {
             .then((doc) => {
               console.log(doc);
               setDocument(JSON.parse(doc));
+              setCharIds(extractCharIds(JSON.parse(doc)));
             })
             .catch((err) => {
               console.error("Error getting document", err);
               setDocument(mockDocument);
+              setCharIds(extractCharIds(mockDocument));
             });
         })
         .catch((err) => {
           console.error("Error sending operations", err);
           setDocument(mockDocument);
+          setCharIds(extractCharIds(mockDocument));
         });
     }
   };
@@ -247,14 +256,17 @@ const useOperationsHook = (documentId: string) => {
           }
 
           setDocument(parsedDoc);
+          setCharIds(extractCharIds(parsedDoc));
         })
         .catch((err) => {
           console.error("Error getting document", err);
           setDocument(mockDocument);
+          setCharIds(extractCharIds(mockDocument));
         });
     } catch (err) {
       console.error("Error getting document", err);
       setDocument(mockDocument);
+      setCharIds(extractCharIds(mockDocument));
     }
   }, []);
 

@@ -75,13 +75,13 @@ function getMarkBoundaries(
  */
 function getMarkOptions(markType: string, step: AddMarkStep | RemoveMarkStep) {
   if (markType === MarkType.TextColor) {
-    return { color: step.mark.attrs.stringValue };
+    return new types.MarkOptions({ Color: step.mark.attrs.stringValue });
   } else if (markType === MarkType.BackgroundColor) {
-    return { color: step.mark.attrs.stringValue };
+    return new types.MarkOptions({ Color: step.mark.attrs.stringValue });
   } else if (markType === LinkType) {
-    return { link: step.mark.attrs.href };
+    return new types.MarkOptions({ Href: step.mark.attrs.href });
   } else {
-    return {};
+    return new types.MarkOptions({});
   }
 }
 
