@@ -50,7 +50,7 @@ func CreateInsertOp(afterID string, content string) types.CRDTInsertChar {
 // ----- Tests -----
 
 // Check that the CompileDocument can generate a json string from the editor of one peer
-func Test_Document_Compilation_1Peer(t *testing.T) {
+func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 	transp := channel.NewTransport()
 	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
 	defer peer.Stop()
@@ -152,6 +152,39 @@ func Test_Document_Compilation_1Peer(t *testing.T) {
 	require.NoError(t, err)
 
 	expected = "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{\"bold\":true}}],\"children\":[]},{\"id\":\"8@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\",\"level\":1},\"content\":[{\"type\":\"text\",\"charIds\":[\"9@temp\",\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
+	require.JSONEq(t, expected, doc)
+
+	// Add a third block with the text "Hello World!"
+	block3ID := "16" + "@temp"
+	addBlock3 := types.CRDTAddBlock{
+		AfterBlock:  block2ID,
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		},
+	}
+	err = peer.UpdateEditor([]types.CRDTOperation{{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "temp",
+		OperationID: 16,
+		DocumentID:  "doc1",
+		BlockID:     block3ID,
+		Operation:   addBlock3,
+	}})
+	require.NoError(t, err)
+
+	// Add some text to the block
+	inserts = CreateInsertsFromString("Block3", "temp", block3ID, 17) // last opId is 22
+	err = peer.UpdateEditor(inserts)
+
+	// Compile the document
+	doc, err = peer.CompileDocument("doc1")
+	require.NoError(t, err)
+
+	expected = "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{\"bold\":true}}],\"children\":[]},{\"id\":\"8@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\",\"level\":1},\"content\":[{\"type\":\"text\",\"charIds\":[\"9@temp\",\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]},{\"id\":\"16@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"17@temp\",\"18@temp\",\"19@temp\",\"20@temp\",\"21@temp\",\"22@temp\"],\"text\":\"Block3\",\"styles\":{}}],\"children\":[]}]"
 	require.JSONEq(t, expected, doc)
 }
 
@@ -317,6 +350,7 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 	// Add a second child to the parent block
 	block3ID := "10@temp"
 	addBlock3 := types.CRDTAddBlock{
+		AfterBlock:  block2ID,
 		ParentBlock: block1ID,
 		BlockType:   types.ParagraphBlockType,
 		Props: types.DefaultBlockProps{
@@ -346,6 +380,60 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 	require.NoError(t, err)
 
 	expected = "[{\"id\":\"1@temp\",\"type\":\"heading\",\"props\":{\"level\":1,\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\"],\"text\":\"H1\",\"styles\":{}}],\"children\":[{\"id\":\"4@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"5@temp\",\"6@temp\",\"7@temp\",\"8@temp\",\"9@temp\"],\"text\":\"Child\",\"styles\":{}}],\"children\":[]},{\"id\":\"10@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\",\"16@temp\"],\"text\":\"Child2\",\"styles\":{}}],\"children\":[]}]}]"
+	require.JSONEq(t, expected, doc)
+}
+
+func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
+	transp := channel.NewTransport()
+	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peer.Stop()
+
+	block1ID := "1" + "@temp"
+	addBlock1 := types.CRDTAddBlock{
+		AfterBlock:  "",
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		},
+	}
+
+	// Populate the editor with some operations
+	//Add a block
+	err := peer.UpdateEditor([]types.CRDTOperation{{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "temp",
+		OperationID: 1,
+		DocumentID:  "doc1",
+		BlockID:     block1ID,
+		Operation:   addBlock1,
+	}})
+	require.NoError(t, err)
+
+	// Add some text to the block
+	inserts := CreateInsertsFromString("ac", "temp", block1ID, 2) // last opId is 3
+	err = peer.UpdateEditor(inserts)
+	require.NoError(t, err)
+
+	// Add some text to the block in the 3rd position
+	inserts = []types.CRDTOperation{{
+		Type:        types.CRDTInsertCharType,
+		Origin:      "temp",
+		OperationID: 4,
+		DocumentID:  "doc1",
+		BlockID:     block1ID,
+		Operation:   CreateInsertOp("2@temp", "b"),
+	}}
+	err = peer.UpdateEditor(inserts)
+	require.NoError(t, err)
+
+	// Generate the document
+	doc, err := peer.CompileDocument("doc1")
+	require.NoError(t, err)
+
+	expected := "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"4@temp\",\"3@temp\"],\"text\":\"abc\",\"styles\":{}}],\"children\":[]}]"
 	require.JSONEq(t, expected, doc)
 }
 

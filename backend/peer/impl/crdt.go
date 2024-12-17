@@ -21,26 +21,21 @@ import (
  * 4. Apply the non mark operations.
  * 5. Apply the mark operations.
  */
- func (n *node) CompileDocument(docID string) (string, error) {
+func (n *node) CompileDocument(docID string) (string, error) {
 	editor := n.GetDocumentOps(docID)
 	if editor == nil {
 		return "", xerrors.Errorf("document not found")
 	}
 
 	finalDoc := make(map[string]types.BlockType, len(editor))
+	var CRDTAddBlockOps []types.CRDTOperation
+	childrenAddBlockOps := make(map[string][]types.CRDTOperation) //parentBlock -> addBlockOpChildren
 
 	// Loop through the blocks of the document -> By order of BlockID
 	// Subsequent blocks may be children and should therefore be added to the parent block
 
-	blockIDs := make([]string, 0, len(editor))
-	for blockID := range editor {
-		blockIDs = append(blockIDs, blockID)
-	}
-	// Sort the blockIDs
-	blockIDs = sortOpIDs(blockIDs)
-
-	for id := range blockIDs {
-		ops := editor[blockIDs[id]]
+	for _, ops := range editor {
+		//ops := editor[blockIDs[id]]
 		// Filter the insert operations
 		insertOps := n.FilterOps(ops, types.CRDTInsertCharType)
 		// Sort the ops and remove the chars that are marked for deletion
@@ -95,18 +90,36 @@ import (
 		}
 
 		types.AddContent(block, sortedChars, textStyles)
+		finalDoc[blockOp.OpID] = block
+		n.logCRDT.Debug().Msgf("block %s added to finalDoc", blockOp.OpID)
 
 		// Check if the block has parents
 		if blockOp.ParentBlock != "" {
-			// Find the parent block
-			parentBlock := finalDoc[blockOp.ParentBlock]
-			if parentBlock == nil {
-				return "", xerrors.Errorf("parent block not found")
-			}
-			types.AddChildren(parentBlock, []types.BlockType{block})
+			// Add the block to the parent-children map to be sorted and added later
+			childrenAddBlockOps[blockOp.ParentBlock] = append(childrenAddBlockOps[blockOp.ParentBlock], Op1)
 		} else {
-			finalDoc[blockOp.OpID] = block
+			CRDTAddBlockOps = append(CRDTAddBlockOps, Op1)
 		}
+	}
+
+	// Add the children blocks to the parent blocks
+	// For each parent block (Iterating over the keys)
+	for parentID, addBlocks := range childrenAddBlockOps {
+		// Sort the add blocks in the correct generation order
+		sortedChildrenBlockIDs := n.sortAddBlockOpIDs(addBlocks)
+		n.logCRDT.Debug().Msgf("Parent Block %s : Sorted children blockIDs %s", parentID, sortedChildrenBlockIDs)
+		// For each child block, add it to the parent block
+		parentBlock := finalDoc[parentID]
+		for _, childID := range sortedChildrenBlockIDs {
+			childBlock := finalDoc[childID]
+			// Add the child block to the parent block
+			types.AddChildren(parentBlock, []types.BlockType{childBlock})
+			n.logCRDT.Debug().Msgf("block %s added to parent block %s", childID, parentID)
+			// Delete the child block from the final document
+			delete(finalDoc, childID)
+			n.logCRDT.Debug().Msgf("block %s removed from finalDoc", childID)
+		}
+
 	}
 
 	// Now that we have the final document, we can convert it to a json string
@@ -114,44 +127,18 @@ import (
 
 	// We need to iterate over the blocks in the correct order:
 	// Get the indices of the blocks and sort them by the block id
-	docBlockOps := make([]string, 0, len(finalDoc))
-	for opID := range finalDoc {
-		docBlockOps = append(docBlockOps, opID)
-	}
-	// Sort the docBlockOps
-	docBlockOps = sortOpIDs(docBlockOps)
+	docBlockOps := n.sortAddBlockOpIDs(CRDTAddBlockOps)
+	n.logCRDT.Debug().Msgf("Sorted blockIDs %s", docBlockOps)
 
-	for i := range docBlockOps {
-		n.logCRDT.Debug().Msgf("block %s being compiled", docBlockOps[i])
-		block := finalDoc[docBlockOps[i]]
+	for _, blockID := range docBlockOps {
+		n.logCRDT.Debug().Msgf("block %s being compiled", blockID)
+		block := finalDoc[blockID]
 		finalJson += types.SerializeBlock(block) + ","
 	}
 	finalJson = finalJson[:len(finalJson)-1] // Remove the additional ","
 	finalJson += "]"
 
 	return finalJson, nil
-}
-
-func sortOpIDs(ops []string) []string {
-
-	sort.Slice(ops, func(i, j int) bool {
-		split1 := strings.Split(ops[i], "@")
-		split2 := strings.Split(ops[j], "@")
-		opID1, err := strconv.Atoi(split1[0])
-		if err != nil {
-			return false
-		}
-		opID2, err := strconv.Atoi(split2[0])
-		if err != nil {
-			return false
-		}
-		if opID1 == opID2 {
-			return split1[1] < split2[1]
-		}
-		return opID1 < opID2
-	})
-	return ops
-
 }
 
 func (n *node) AddMark(textStyle types.TextStyle, toAdd types.CRDTAddMark) types.TextStyle {
@@ -198,6 +185,57 @@ func (n *node) FilterOps(ops []types.CRDTOperation, opType string) []types.CRDTO
 	return insertOps
 }
 
+// SortAddBlockOpIDs sorts the operations in the block by their afterBlockID and then by their Operation id.
+// Returns the blockIds in the correct order of generation
+func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
+
+	sort.Slice(ops, func(i, j int) bool {
+		// Cast the operations to the correct type
+		addBlockOp1 := ops[i].Operation.(types.CRDTAddBlock)
+		addBlockOp2 := ops[j].Operation.(types.CRDTAddBlock)
+
+		if addBlockOp1.AfterBlock == "" {
+			return true
+		}
+		if addBlockOp2.AfterBlock == "" {
+			return false
+		}
+
+		split1 := strings.Split(addBlockOp1.AfterBlock, "@")
+		afterOp1, err := strconv.Atoi(split1[0])
+		if err != nil {
+			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
+		}
+		afterAddr1 := split1[1]
+
+		split2 := strings.Split(addBlockOp2.AfterBlock, "@")
+		afterOp2, err := strconv.Atoi(split2[0])
+		if err != nil {
+			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
+		}
+		afterAddr2 := split2[1]
+
+		if afterOp1 == afterOp2 { // AftersOpIDs are the same
+			if afterAddr1 == afterAddr2 { // Addresses of the afterID are also the same
+				// Compare the operation ids of the insert
+				if ops[i].OperationID == ops[j].OperationID {
+					return ops[i].Origin < ops[j].Origin
+				}
+				return ops[i].OperationID > ops[j].OperationID
+			}
+		}
+		return afterOp1 < afterOp2
+	})
+
+	// Turn the operations into a slice of blockIds
+	var blockIds []string
+	for _, op := range ops {
+		blockIds = append(blockIds, strconv.FormatUint(op.OperationID, 10)+"@"+op.Origin)
+	}
+
+	return blockIds
+}
+
 // SortInsertOps sorts the operations in the block by their afterID and then by their Operation id.
 // It also removes the characters that are marked for deletion.
 // Fills in the opID field of the insert operations
@@ -235,7 +273,7 @@ func (n *node) SortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOpe
 				if ops[i].OperationID == ops[j].OperationID {
 					return ops[i].Origin < ops[j].Origin
 				}
-				return ops[i].OperationID < ops[j].OperationID
+				return ops[i].OperationID > ops[j].OperationID
 			}
 
 			return afterAddr1 < afterAddr2
@@ -318,9 +356,9 @@ func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error 
 
 	// Step 0: Cast all interfaces to the respective types
 	// Use an indexed loop so we can get a pointer to the actual slice element
-    for i := range operations {
-        n.CastOperation(&operations[i])
-    }
+	for i := range operations {
+		n.CastOperation(&operations[i])
+	}
 
 	// Step 1: Update CRDT states and initialize operations
 	for i, operation := range operations {
@@ -550,17 +588,16 @@ func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlo
 // These functions are only defined in the node to enable wails to generate the
 // necessary bindings for the frontend for these operations.
 
-
 func (n *node) ExportCRDTAddBlock(addBlockOp types.CRDTAddBlock) error {
-    return nil
+	return nil
 }
 
 func (n *node) ExportCRDTRemoveBlock(removeBlockOp types.CRDTRemoveBlock) error {
-    return nil
+	return nil
 }
 
 func (n *node) ExportCRDTUpdateBlock(updateBlockOp types.CRDTUpdateBlock) error {
-    return nil
+	return nil
 }
 
 func (n *node) ExportCRDTInsertChar(insertCharOp types.CRDTInsertChar) error {
