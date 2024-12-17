@@ -89,6 +89,11 @@ func (n *node) SetRoutingEntry(origin, relayAddr string) {
 }
 
 // AddPeer implements peer.Messaging
+func (n *node) AddSinglePeer(addr string) {
+	n.AddPeer(addr)
+}
+
+// AddPeer implements peer.Messaging
 func (n *node) AddPeer(addr ...string) {
 	for _, a := range addr {
 		if a == n.conf.Socket.GetAddress() {

@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { AddPeer as Add_Peer, GetAddress } from "../../../wailsjs/go/impl/node";
+import { AddSinglePeer, GetAddress } from "../../../wailsjs/go/impl/node";
 
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -59,8 +59,8 @@ export default function AddPeer() {
       description:
         "You can now start editting the document together in the editor",
     });
-    const ip = [data.ipAddress];
-    Add_Peer(ip);
+    const ip = data.ipAddress;
+    AddSinglePeer(ip);
   }
 
   return (
