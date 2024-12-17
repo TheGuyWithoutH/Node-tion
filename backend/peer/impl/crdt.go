@@ -21,7 +21,7 @@ import (
  * 4. Apply the non mark operations.
  * 5. Apply the mark operations.
  */
-func (n *node) CompileDocument(docID string) (string, error) {
+ func (n *node) CompileDocument(docID string) (string, error) {
 	editor := n.GetDocumentOps(docID)
 	if editor == nil {
 		return "", xerrors.Errorf("document not found")
@@ -317,9 +317,10 @@ func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error 
 	n.logCRDT.Debug().Msgf("SaveTransactions: %d operations", len(operations))
 
 	// Step 0: Cast all interfaces to the respective types
-	for _, operation := range operations {
-		n.CastOperation(&operation)
-	}
+	// Use an indexed loop so we can get a pointer to the actual slice element
+    for i := range operations {
+        n.CastOperation(&operations[i])
+    }
 
 	// Step 1: Update CRDT states and initialize operations
 	for i, operation := range operations {
@@ -541,4 +542,39 @@ func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlo
 	default:
 		return nil
 	}
+}
+
+// -------------------------------------------------------------------
+// Exported CRDT Operations
+//
+// These functions are only defined in the node to enable wails to generate the
+// necessary bindings for the frontend for these operations.
+
+
+func (n *node) ExportCRDTAddBlock(addBlockOp types.CRDTAddBlock) error {
+    return nil
+}
+
+func (n *node) ExportCRDTRemoveBlock(removeBlockOp types.CRDTRemoveBlock) error {
+    return nil
+}
+
+func (n *node) ExportCRDTUpdateBlock(updateBlockOp types.CRDTUpdateBlock) error {
+    return nil
+}
+
+func (n *node) ExportCRDTInsertChar(insertCharOp types.CRDTInsertChar) error {
+	return nil
+}
+
+func (n *node) ExportCRDTDeleteChar(deleteCharOp types.CRDTDeleteChar) error {
+	return nil
+}
+
+func (n *node) ExportCRDTAddMark(addMarkOp types.CRDTAddMark) error {
+	return nil
+}
+
+func (n *node) ExportCRDTRemoveMark(removeMarkOp types.CRDTRemoveMark) error {
+	return nil
 }

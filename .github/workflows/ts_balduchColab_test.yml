@@ -1,0 +1,34 @@
+name: BalduchColab_tests_frontend
+
+on: push
+
+jobs:
+  tests:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on:
+      group: runners_v1
+    env:
+      LLVL: trace
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+      - run: npm ci
+      - run: npm run test
+      - name: Jest Coverage Comment
+        uses: MishaKav/jest-coverage-comment@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          title: Node-tion's Jest Coverage
+          summary-title: Summary for Node-tion's Jest Coverage
+          hide-comment: false
+          create-new-comment: false
+          hide-summary: false
+          junitxml-title: My JUnit Coverage
+          coverage-title: The Coverage

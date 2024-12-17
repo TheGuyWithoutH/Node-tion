@@ -1,3 +1,4 @@
+// import { BrowserOpenURL } from "wailsjs/runtime/runtime";
 import icon from "../../assets/icon.png";
 
 /**
@@ -18,7 +19,7 @@ export default function Home() {
         notes using blocks. The app is totally decentralized thanks to the
         Peritext protocol.
       </p>
-      <p className="text-lg mt-4">
+      <p className="mt-4 font-light">
         Peritext is an algorithm for rich-text collaboration that provides
         greater flexibility: it allows users to edit independent copies of a
         document, and it provides a mechanism for automatically merging those
@@ -30,17 +31,19 @@ export default function Home() {
       <a
         href="https://www.inkandswitch.com/peritext/"
         target="_blank"
+        // onClick={() => BrowserOpenURL("https://www.inkandswitch.com/peritext/")}
         className="text-blue-500 my-4"
       >
         Learn more about Peritext
       </a>
-      <p className="text-lg mt-4">
+      <p className="text-lg mt-4 font-light">
         To get started, click on the editor tab in the sidebar to create a new
         note.
       </p>
       <p className="text-sm mt-4 text-gray-500 mt-16">
-        This project has been developed by Yasmin Ben Rahhal, Emma Gaia Poggiolini, Emile Hreich and Ugo Balducci in the
-        context of the course CS-438 at EPFL.
+        This project has been developed by Yasmin Ben Rahhal, Emma Gaia
+        Poggiolini, Emile Hreich and Ugo Balducci in the context of the course
+        CS-438 at EPFL.
       </p>
     </div>
   );

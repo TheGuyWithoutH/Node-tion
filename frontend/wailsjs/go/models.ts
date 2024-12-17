@@ -178,13 +178,186 @@ export namespace types {
 		    return a;
 		}
 	}
+	export class DefaultBlockProps {
+	    BackgroundColor: string;
+	    TextColor: string;
+	    TextAlignment: string;
+	    Level: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DefaultBlockProps(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.BackgroundColor = source["BackgroundColor"];
+	        this.TextColor = source["TextColor"];
+	        this.TextAlignment = source["TextAlignment"];
+	        this.Level = source["Level"];
+	    }
+	}
+	export class CRDTAddBlock {
+	    CRDTOp: any;
+	    OpID: string;
+	    AfterBlock: string;
+	    ParentBlock: string;
+	    BlockType: string;
+	    Props: DefaultBlockProps;
+	
+	    static createFrom(source: any = {}) {
+	        return new CRDTAddBlock(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.CRDTOp = source["CRDTOp"];
+	        this.OpID = source["OpID"];
+	        this.AfterBlock = source["AfterBlock"];
+	        this.ParentBlock = source["ParentBlock"];
+	        this.BlockType = source["BlockType"];
+	        this.Props = this.convertValues(source["Props"], DefaultBlockProps);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class MarkOptions {
+	    Color: string;
+	    Href: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MarkOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Color = source["Color"];
+	        this.Href = source["Href"];
+	    }
+	}
+	export class MarkEnd {
+	    Type: string;
+	    OpID: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MarkEnd(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Type = source["Type"];
+	        this.OpID = source["OpID"];
+	    }
+	}
+	export class MarkStart {
+	    Type: string;
+	    OpID: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MarkStart(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Type = source["Type"];
+	        this.OpID = source["OpID"];
+	    }
+	}
+	export class CRDTAddMark {
+	    CRDTOp: any;
+	    OpID: string;
+	    Start: MarkStart;
+	    End: MarkEnd;
+	    MarkType: string;
+	    Options: MarkOptions;
+	
+	    static createFrom(source: any = {}) {
+	        return new CRDTAddMark(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.CRDTOp = source["CRDTOp"];
+	        this.OpID = source["OpID"];
+	        this.Start = this.convertValues(source["Start"], MarkStart);
+	        this.End = this.convertValues(source["End"], MarkEnd);
+	        this.MarkType = source["MarkType"];
+	        this.Options = this.convertValues(source["Options"], MarkOptions);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class CRDTDeleteChar {
+	    CRDTOp: any;
+	    OpID: string;
+	    RemovedID: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CRDTDeleteChar(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.CRDTOp = source["CRDTOp"];
+	        this.OpID = source["OpID"];
+	        this.RemovedID = source["RemovedID"];
+	    }
+	}
+	export class CRDTInsertChar {
+	    CRDTOp: any;
+	    OpID: string;
+	    AfterID: string;
+	    Character: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CRDTInsertChar(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.CRDTOp = source["CRDTOp"];
+	        this.OpID = source["OpID"];
+	        this.AfterID = source["AfterID"];
+	        this.Character = source["Character"];
+	    }
+	}
 	export class CRDTOperation {
 	    Type: string;
-	    BlockType: string;
 	    Origin: string;
-	    OperationId: number;
-	    DocumentId: string;
-	    BlockId: string;
+	    OperationID: number;
+	    DocumentID: string;
+	    BlockID: string;
 	    Operation: any;
 	
 	    static createFrom(source: any = {}) {
@@ -194,11 +367,10 @@ export namespace types {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Type = source["Type"];
-	        this.BlockType = source["BlockType"];
 	        this.Origin = source["Origin"];
-	        this.OperationId = source["OperationId"];
-	        this.DocumentId = source["DocumentId"];
-	        this.BlockId = source["BlockId"];
+	        this.OperationID = source["OperationID"];
+	        this.DocumentID = source["DocumentID"];
+	        this.BlockID = source["BlockID"];
 	        this.Operation = source["Operation"];
 	    }
 	}
@@ -232,6 +404,101 @@ export namespace types {
 		    return a;
 		}
 	}
+	export class CRDTRemoveBlock {
+	    CRDTOp: any;
+	    OpID: string;
+	    RemovedBlock: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CRDTRemoveBlock(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.CRDTOp = source["CRDTOp"];
+	        this.OpID = source["OpID"];
+	        this.RemovedBlock = source["RemovedBlock"];
+	    }
+	}
+	export class CRDTRemoveMark {
+	    CRDTOp: any;
+	    OpID: string;
+	    Start: MarkStart;
+	    End: MarkEnd;
+	    MarkType: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CRDTRemoveMark(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.CRDTOp = source["CRDTOp"];
+	        this.OpID = source["OpID"];
+	        this.Start = this.convertValues(source["Start"], MarkStart);
+	        this.End = this.convertValues(source["End"], MarkEnd);
+	        this.MarkType = source["MarkType"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class CRDTUpdateBlock {
+	    CRDTOp: any;
+	    UpdatedBlock: string;
+	    AfterBlock: string;
+	    ParentBlock: string;
+	    BlockType: string;
+	    Props: DefaultBlockProps;
+	
+	    static createFrom(source: any = {}) {
+	        return new CRDTUpdateBlock(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.CRDTOp = source["CRDTOp"];
+	        this.UpdatedBlock = source["UpdatedBlock"];
+	        this.AfterBlock = source["AfterBlock"];
+	        this.ParentBlock = source["ParentBlock"];
+	        this.BlockType = source["BlockType"];
+	        this.Props = this.convertValues(source["Props"], DefaultBlockProps);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class FileInfo {
 	    Name: string;
 	    Metahash: string;
@@ -248,6 +515,9 @@ export namespace types {
 	        this.Chunks = source["Chunks"];
 	    }
 	}
+	
+	
+	
 	
 	export class Rumor {
 	    Origin: string;
@@ -299,6 +569,28 @@ export namespace types {
 	        this.Origin = source["Origin"];
 	        this.Pattern = source["Pattern"];
 	        this.Budget = source["Budget"];
+	    }
+	}
+	export class TextStyle {
+	    Bold: boolean;
+	    Italic: boolean;
+	    Underline: boolean;
+	    Strikethrough: boolean;
+	    TextColor: string;
+	    BackgroundColor: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TextStyle(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Bold = source["Bold"];
+	        this.Italic = source["Italic"];
+	        this.Underline = source["Underline"];
+	        this.Strikethrough = source["Strikethrough"];
+	        this.TextColor = source["TextColor"];
+	        this.BackgroundColor = source["BackgroundColor"];
 	    }
 	}
 

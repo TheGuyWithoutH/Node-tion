@@ -1,19 +1,24 @@
 package main
 
 import (
-	"Node-tion/backend/peer"
 	"embed"
 	"log"
-
+	"fmt"
+	"os"
+	"path/filepath"
+	
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
-
+	
+	"Node-tion/backend/peer"
 	"Node-tion/backend/peer/impl"
-	"Node-tion/backend/types"
+	"Node-tion/backend/transport/udp"
+	"Node-tion/backend/registry/standard"
+	"Node-tion/backend/storage/inmemory"
 )
 
 //go:embed all:frontend/dist
@@ -26,9 +31,27 @@ func main() {
 
 	var peerFactory = impl.NewPeer
 
+	trans := udp.NewUDP()
+
+	sock, err := trans.CreateSocket("127.0.0.1:0")
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	socketPath := filepath.Join(os.TempDir(), fmt.Sprintf("socketaddress_%d", os.Getpid()))
+
+	err = os.WriteFile(socketPath, []byte(sock.GetAddress()), os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	storage := inmemory.NewPersistency()
+
 	conf := peer.Configuration{
-		Socket:              nil,
-		MessageRegistry:     nil,
+		Socket:              sock,
+		MessageRegistry:     standard.NewRegistry(),
 		AntiEntropyInterval: 0,
 		HeartbeatInterval:   0,
 		AckTimeout:          3,
@@ -39,7 +62,7 @@ func main() {
 			Factor:  2,
 			Retry:   5,
 		},
-		Storage:    nil,
+		Storage:    storage,
 		TotalPeers: 0,
 		PaxosThreshold: func(u uint) int {
 			return int(u/2 + 1)
@@ -50,10 +73,12 @@ func main() {
 
 	node := peerFactory(conf)
 
-	app := &App{}
+	app := &App{
+		node: node,
+	}
 
 	// Create application with options
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:             "Node-tion",
 		Width:             1024,
 		Height:            768,
@@ -72,7 +97,7 @@ func main() {
 		},
 		Menu:             nil,
 		Logger:           nil,
-		LogLevel:         logger.DEBUG,
+		LogLevel:         logger.ERROR,
 		OnStartup:        app.startup,
 		OnDomReady:       app.domReady,
 		OnBeforeClose:    app.beforeClose,
@@ -82,16 +107,6 @@ func main() {
 		Bind: []interface{}{
 			app,
 			node,
-			//These are redundant but necessary for the bindings for type infratsructure compatibility
-			&types.CRDTOperationsMessage{},
-			&types.CRDTOperation{},
-			&types.CRDTRemoveBlock{},
-			&types.CRDTAddBlock{},
-			&types.CRDTUpdateBlock{},
-			&types.CRDTInsertChar{},
-			&types.CRDTDeleteChar{},
-			&types.CRDTAddMark{},
-			&types.CRDTRemoveMark{},
 		},
 		// Windows platform specific options
 		Windows: &windows.Options{

@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"Node-tion/backend/peer"
 )
 
 // App struct
 type App struct {
 	ctx context.Context
+	node peer.Peer
 }
 
 // NewApp creates a new App application struct
@@ -24,6 +26,10 @@ func (a *App) startup(ctx context.Context) {
 // domReady is called after front-end resources have been loaded
 func (a App) domReady(ctx context.Context) {
 	// Add your action here
+
+	if a.node != nil {
+		a.node.Start()
+	}
 }
 
 // beforeClose is called when the application is about to quit,

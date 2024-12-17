@@ -14,6 +14,8 @@ export function AckTicker(arg1:transport.Header,arg2:transport.Message):Promise<
 
 export function AddBlockAndName(arg1:types.BlockchainBlock):Promise<void>;
 
+export function AddMark(arg1:types.TextStyle,arg2:types.CRDTAddMark):Promise<types.TextStyle>;
+
 export function AddPeer(arg1:Array<string>):Promise<void>;
 
 export function AddRequest(arg1:string):Promise<boolean>;
@@ -26,7 +28,17 @@ export function Broadcast(arg1:transport.Message):Promise<void>;
 
 export function CRDTOperationsMessageCallback(arg1:types.Message,arg2:transport.Packet):Promise<void>;
 
+export function CastAndSetOperation(arg1:types.CRDTOperation,arg2:types.CRDTOp):Promise<void>;
+
+export function CastAndSetProps(arg1:types.BlockTypeName,arg2:any):Promise<types.BlockType>;
+
+export function CastOperation(arg1:types.CRDTOperation):Promise<void>;
+
 export function ChatMessageCallback(arg1:types.Message,arg2:transport.Packet):Promise<void>;
+
+export function CompileDocument(arg1:string):Promise<string>;
+
+export function CreateBlock(arg1:types.BlockTypeName,arg2:types.DefaultBlockProps,arg3:string):Promise<types.BlockType>;
 
 export function CreateBudgetMap(arg1:number,arg2:number):Promise<{[key: number]: number}>;
 
@@ -47,6 +59,22 @@ export function DownloadElement(arg1:string):Promise<Array<number>>;
 export function EmptyMessageCallback(arg1:types.Message,arg2:transport.Packet):Promise<void>;
 
 export function ExpandRing(arg1:peer.ExpandingRing,arg2:string,arg3:regexp.Regexp,arg4:number,arg5:sync.WaitGroup,arg6:any):Promise<void>;
+
+export function ExportCRDTAddBlock(arg1:types.CRDTAddBlock):Promise<void>;
+
+export function ExportCRDTAddMark(arg1:types.CRDTAddMark):Promise<void>;
+
+export function ExportCRDTDeleteChar(arg1:types.CRDTDeleteChar):Promise<void>;
+
+export function ExportCRDTInsertChar(arg1:types.CRDTInsertChar):Promise<void>;
+
+export function ExportCRDTRemoveBlock(arg1:types.CRDTRemoveBlock):Promise<void>;
+
+export function ExportCRDTRemoveMark(arg1:types.CRDTRemoveMark):Promise<void>;
+
+export function ExportCRDTUpdateBlock(arg1:types.CRDTUpdateBlock):Promise<void>;
+
+export function FilterOps(arg1:Array<types.CRDTOperation>,arg2:string):Promise<Array<types.CRDTOperation>>;
 
 export function ForwardSearchRequest(arg1:number,arg2:string,arg3:regexp.Regexp,arg4:types.SearchRequestMessage):Promise<void>;
 
@@ -76,6 +104,8 @@ export function GetRandomPeerFromCatalog(arg1:string):Promise<string>;
 
 export function GetRoutingTable():Promise<peer.RoutingTable>;
 
+export function GetTmpID(arg1:number):Promise<number>;
+
 export function HeartbeatTicker():Promise<void>;
 
 export function HexEncode(arg1:Array<number>):Promise<string>;
@@ -101,6 +131,8 @@ export function ProcessRumor(arg1:types.Rumor,arg2:transport.Packet):Promise<voi
 export function RelayMsg(arg1:transport.Packet):Promise<void>;
 
 export function RemoteDownload(arg1:string):Promise<Array<number>>;
+
+export function RemoveMark(arg1:types.TextStyle,arg2:string):Promise<types.TextStyle>;
 
 export function RemovePeerFromCatalog(arg1:string,arg2:string):Promise<void>;
 
@@ -147,6 +179,8 @@ export function SetDataReplyChan(arg1:string,arg2:any):Promise<void>;
 export function SetRoutingEntry(arg1:string,arg2:string):Promise<void>;
 
 export function SetSearchReplyChan(arg1:string,arg2:any):Promise<void>;
+
+export function SortInsertOps(arg1:Array<types.CRDTOperation>,arg2:Array<types.CRDTOperation>):Promise<Array<types.CRDTInsertChar>>;
 
 export function SplitMetafile(arg1:Array<number>):Promise<Array<string>>;
 

@@ -1,12 +1,5 @@
 package types
 
-// CRDTOperationsMessage describes a message that contains a list of CRDT operations.
-//
-// - implements types.Message
-type CRDTOperationsMessage struct {
-	Operations []CRDTOperation
-}
-
 // CRDTOp is an interface that defines the methods that a CRDT operation must implement.
 type CRDTOp interface{}
 

@@ -14,6 +14,10 @@ export function AddBlockAndName(arg1) {
   return window['go']['impl']['node']['AddBlockAndName'](arg1);
 }
 
+export function AddMark(arg1, arg2) {
+  return window['go']['impl']['node']['AddMark'](arg1, arg2);
+}
+
 export function AddPeer(arg1) {
   return window['go']['impl']['node']['AddPeer'](arg1);
 }
@@ -38,8 +42,28 @@ export function CRDTOperationsMessageCallback(arg1, arg2) {
   return window['go']['impl']['node']['CRDTOperationsMessageCallback'](arg1, arg2);
 }
 
+export function CastAndSetOperation(arg1, arg2) {
+  return window['go']['impl']['node']['CastAndSetOperation'](arg1, arg2);
+}
+
+export function CastAndSetProps(arg1, arg2) {
+  return window['go']['impl']['node']['CastAndSetProps'](arg1, arg2);
+}
+
+export function CastOperation(arg1) {
+  return window['go']['impl']['node']['CastOperation'](arg1);
+}
+
 export function ChatMessageCallback(arg1, arg2) {
   return window['go']['impl']['node']['ChatMessageCallback'](arg1, arg2);
+}
+
+export function CompileDocument(arg1) {
+  return window['go']['impl']['node']['CompileDocument'](arg1);
+}
+
+export function CreateBlock(arg1, arg2, arg3) {
+  return window['go']['impl']['node']['CreateBlock'](arg1, arg2, arg3);
 }
 
 export function CreateBudgetMap(arg1, arg2) {
@@ -80,6 +104,38 @@ export function EmptyMessageCallback(arg1, arg2) {
 
 export function ExpandRing(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['impl']['node']['ExpandRing'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+export function ExportCRDTAddBlock(arg1) {
+  return window['go']['impl']['node']['ExportCRDTAddBlock'](arg1);
+}
+
+export function ExportCRDTAddMark(arg1) {
+  return window['go']['impl']['node']['ExportCRDTAddMark'](arg1);
+}
+
+export function ExportCRDTDeleteChar(arg1) {
+  return window['go']['impl']['node']['ExportCRDTDeleteChar'](arg1);
+}
+
+export function ExportCRDTInsertChar(arg1) {
+  return window['go']['impl']['node']['ExportCRDTInsertChar'](arg1);
+}
+
+export function ExportCRDTRemoveBlock(arg1) {
+  return window['go']['impl']['node']['ExportCRDTRemoveBlock'](arg1);
+}
+
+export function ExportCRDTRemoveMark(arg1) {
+  return window['go']['impl']['node']['ExportCRDTRemoveMark'](arg1);
+}
+
+export function ExportCRDTUpdateBlock(arg1) {
+  return window['go']['impl']['node']['ExportCRDTUpdateBlock'](arg1);
+}
+
+export function FilterOps(arg1, arg2) {
+  return window['go']['impl']['node']['FilterOps'](arg1, arg2);
 }
 
 export function ForwardSearchRequest(arg1, arg2, arg3, arg4) {
@@ -138,6 +194,10 @@ export function GetRoutingTable() {
   return window['go']['impl']['node']['GetRoutingTable']();
 }
 
+export function GetTmpID(arg1) {
+  return window['go']['impl']['node']['GetTmpID'](arg1);
+}
+
 export function HeartbeatTicker() {
   return window['go']['impl']['node']['HeartbeatTicker']();
 }
@@ -188,6 +248,10 @@ export function RelayMsg(arg1) {
 
 export function RemoteDownload(arg1) {
   return window['go']['impl']['node']['RemoteDownload'](arg1);
+}
+
+export function RemoveMark(arg1, arg2) {
+  return window['go']['impl']['node']['RemoveMark'](arg1, arg2);
 }
 
 export function RemovePeerFromCatalog(arg1, arg2) {
@@ -280,6 +344,10 @@ export function SetRoutingEntry(arg1, arg2) {
 
 export function SetSearchReplyChan(arg1, arg2) {
   return window['go']['impl']['node']['SetSearchReplyChan'](arg1, arg2);
+}
+
+export function SortInsertOps(arg1, arg2) {
+  return window['go']['impl']['node']['SortInsertOps'](arg1, arg2);
 }
 
 export function SplitMetafile(arg1) {

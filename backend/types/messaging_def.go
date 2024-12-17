@@ -70,3 +70,11 @@ type PrivateMessage struct {
 	// Msg is the private message to be read by the recipients
 	Msg *transport.Message
 }
+
+
+// CRDTOperationsMessage describes a message that contains a list of CRDT operations.
+//
+// - implements types.Message
+type CRDTOperationsMessage struct {
+	Operations []CRDTOperation
+}
