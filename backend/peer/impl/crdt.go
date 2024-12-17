@@ -496,19 +496,17 @@ func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error 
 	}
 
 	// Step 1: Update CRDT states and initialize operations
-	for i, operation := range operations {
-		if err := n.updateCRDTState(&operation); err != nil {
+	for i := range operations {
+		if err := n.updateCRDTState(&operations[i]); err != nil {
 			return err
 		}
-		operations[i] = operation
 	}
 
 	// Step 2: Update operation attributes
-	for i, operation := range operations {
-		if err := n.updateOperationAttributes(&operation); err != nil {
+	for i := range operations {
+		if err := n.updateOperationAttributes(&operations[i]); err != nil {
 			return err
 		}
-		operations[i] = operation
 	}
 
 	transactions.Operations = operations
@@ -540,6 +538,14 @@ func (n *node) updateCRDTState(operation *types.CRDTOperation) error {
 }
 
 func (n *node) updateOperationAttributes(operation *types.CRDTOperation) error {
+	// Update blockID reference
+	blockID, err := n.updateBlockReferences(&operation.BlockID)
+	if err != nil {
+		return fmt.Errorf("failed to update block references: %w", err)
+	}
+	operation.BlockID = blockID
+
+	// Update other block references
 	switch op := operation.Operation.(type) {
 	case types.CRDTAddBlock:
 		return n.handleCRDTAddBlock(operation, op)
@@ -549,6 +555,8 @@ func (n *node) updateOperationAttributes(operation *types.CRDTOperation) error {
 		return n.handleCRDTUpdateBlock(operation, op)
 	case types.CRDTInsertChar:
 		return n.handleCRDTInsertChar(operation, op)
+	case types.CRDTDeleteChar:
+		return n.handleCRDTDeleteChar(operation, op)
 	case types.CRDTAddMark:
 		return n.handleCRDTAddMark(operation, op)
 	case types.CRDTRemoveMark:
@@ -604,6 +612,16 @@ func (n *node) handleCRDTInsertChar(operation *types.CRDTOperation, op types.CRD
 	return nil
 }
 
+func (n *node) handleCRDTDeleteChar(operation *types.CRDTOperation, op types.CRDTDeleteChar) error {
+	block, err := n.updateBlockReferences(&op.RemovedID)
+	if err != nil {
+		return fmt.Errorf("failed to update block references: %w", err)
+	}
+	op.RemovedID = block
+	operation.Operation = op
+	return nil
+}
+
 func (n *node) handleCRDTAddMark(operation *types.CRDTOperation, op types.CRDTAddMark) error {
 	start, err1 := n.updateBlockReferences(&op.Start.OpID)
 	end, err2 := n.updateBlockReferences(&op.End.OpID)
@@ -633,13 +651,21 @@ func (n *node) updateBlockReferences(ref *string) (string, error) {
 		n.logCRDT.Warn().Msg("updateBlockReferences: empty reference")
 		return "", nil
 	}
-	id, _, err := ParseID(*ref)
+
+	// Parse the ID and username
+	id, username, err := ParseID(*ref)
 	if err != nil {
 		n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)
 		return "", err
 	}
+	
+	// Check if the ID is not a temporary ID
+	if username == n.conf.Socket.GetAddress() {
+		return *ref, nil
+	}
+
 	id = n.crdtState.GetTmpID(id)
-	username := n.conf.Socket.GetAddress()
+	username = n.conf.Socket.GetAddress()
 	res, err := ReconstructOpID(id, username)
 	if err != nil {
 		n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)
