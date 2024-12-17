@@ -70,8 +70,8 @@ function buildFinalOperationObject(
         OperationID: opId,
         DocumentID: documentId,
         BlockID: blockId,
-        BlockType: props.type,
         Operation: new types.CRDTAddBlock({
+          BlockType: props.type,
           AfterBlock: afterBlock,
           ParentBlock: parentBlock,
           Props: props,
