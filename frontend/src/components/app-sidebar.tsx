@@ -1,7 +1,10 @@
 import {
+  ChevronDown,
   ChevronsUpDown,
+  ChevronUp,
   Edit,
   Home,
+  Plus,
   User2Icon,
 } from "lucide-react";
 
@@ -15,6 +18,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -22,29 +27,55 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Avatar, AvatarFallback} from "./ui/avatar";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@radix-ui/react-collapsible";
+import { useState } from "react";
 
-// Menu items.
-const items = [
-  {
-    title: "Home",
-    url: "/",
-    icon: Home,
-  },
-  {
-    title: "Editor",
-    url: "/editor",
-    icon: Edit,
-  },
-  {
-    title: "Add Peer",
-    url: "/add-peer",
-    icon: User2Icon,
-  },
-  
-];
+export function AppSidebar({
+  documentList,
+  onNewDocument,
+}: {
+  documentList: string[];
+  onNewDocument: () => void;
+}) {
+  // Menu items.
+  const items = [
+    {
+      title: "Home",
+      url: "/",
+      icon: Home,
+    },
+    {
+      title: "Editor",
+      url: "/editor",
+      icon: Edit,
+      children: [
+        {
+          title: "New Document",
+          icon: Plus,
+          action: onNewDocument,
+        },
+        {
+          title: "Test Document",
+          url: "/editor/doc1",
+        },
+        ...documentList.map((doc) => ({
+          title: doc.slice(0, 10),
+          url: `/editor/${doc}`,
+        })),
+      ],
+    },
+    {
+      title: "Add Peer",
+      url: "/add-peer",
+      icon: User2Icon,
+    },
+  ];
 
-export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="pt-6">
@@ -82,16 +113,22 @@ export function AppSidebar() {
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {items.map((item) => {
+                if (item.children) {
+                  return <CollapsibleMenu key={item.title} item={item} />;
+                } else {
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <a href={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                }
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -99,3 +136,74 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
+const CollapsibleMenu = ({
+  item,
+}: {
+  item: {
+    title: string;
+    url: string;
+    icon?: any;
+    children: {
+      title: string;
+      url?: string;
+      icon?: any;
+      action?: () => void;
+    }[];
+  };
+}) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Collapsible
+      className="group/collapsible"
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton asChild>
+            <div>
+              {item.icon ? <item.icon /> : null}
+              <span>{item.title}</span>
+              {open ? (
+                <ChevronUp className="ml-auto mr-2" />
+              ) : (
+                <ChevronDown className="ml-auto mr-2" />
+              )}
+            </div>
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.children.map((subItem) => (
+              <SidebarMenuSubItem
+                key={subItem.title}
+                className="my-0.5 hover:bg-gray-100 p-1"
+              >
+                {subItem.action ? (
+                  <button
+                    onClick={subItem.action}
+                    className="flex items-center w-full"
+                  >
+                    <span>{subItem.title}</span>
+                    {subItem.icon ? (
+                      <subItem.icon size={20} className={"ml-auto"} />
+                    ) : null}
+                  </button>
+                ) : (
+                  <a href={subItem.url} className="flex items-center">
+                    <span>{subItem.title}</span>
+                    {subItem.icon ? (
+                      <subItem.icon size={20} className={"ml-auto"} />
+                    ) : null}
+                  </a>
+                )}
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+};

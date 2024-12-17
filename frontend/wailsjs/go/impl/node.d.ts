@@ -88,6 +88,8 @@ export function GetCRDTState(arg1:string):Promise<number>;
 
 export function GetCatalog():Promise<peer.Catalog>;
 
+export function GetDocumentList():Promise<Array<string>>;
+
 export function GetDocumentOps(arg1:string):Promise<{[key: string]: Array<types.CRDTOperation>}>;
 
 export function GetEditor():Promise<peer.Editor>;

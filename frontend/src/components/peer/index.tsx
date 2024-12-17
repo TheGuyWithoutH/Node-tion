@@ -1,13 +1,13 @@
-"use client"
+"use client";
 
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
-import {AddPeer as Add_Peer, GetAddress} from "../../../wailsjs/go/impl/node"
+import { AddPeer as Add_Peer, GetAddress } from "../../../wailsjs/go/impl/node";
 
-import { toast } from "@/hooks/use-toast"
-import { Button } from "@/components/ui/button"
+import { toast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -16,17 +16,16 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
+} from "@/components/ui/form";
 
-import { Input } from "@/components/ui/input"
-import { Toaster } from "../ui/toaster"
-import { useEffect, useState } from "react"
+import { Input } from "@/components/ui/input";
+import { useEffect, useState } from "react";
 
 const FormSchema = z.object({
   ipAddress: z.string().regex(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/, {
     message: "Please enter a valid IP address.",
   }),
-})
+});
 
 export default function AddPeer() {
   const form = useForm<z.infer<typeof FormSchema>>({
@@ -34,26 +33,33 @@ export default function AddPeer() {
     defaultValues: {
       ipAddress: "",
     },
-  })
+  });
 
-  const [address, setAddress] = useState<string>("")
+  const [address, setAddress] = useState<string>("");
 
   useEffect(() => {
-    GetAddress().then((addr) => {
-      console.log(addr)
-      setAddress(addr)
-    }).catch((err) => {
-      console.log(err)
-    })
-  }, [])
+    try {
+      GetAddress()
+        .then((addr) => {
+          console.log(addr);
+          setAddress(addr);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    } catch (err) {
+      console.error("Error getting address", err);
+    }
+  }, []);
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     toast({
       title: "Added Peer",
-      description: "You can now start editting the document together in the editor",
-    })
-    const ip = [data.ipAddress]
-    Add_Peer(ip)
+      description:
+        "You can now start editting the document together in the editor",
+    });
+    const ip = [data.ipAddress];
+    Add_Peer(ip);
   }
 
   return (
@@ -69,15 +75,15 @@ export default function AddPeer() {
                 <Input placeholder="192.168.0.1" {...field} />
               </FormControl>
               <FormDescription>
-                Enter the IP address of the peer you want to add. You are {address}.
+                Enter the IP address of the peer you want to add. You are{" "}
+                {address}.
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
         <Button type="submit">Add Peer</Button>
-        <Toaster />
       </form>
     </Form>
-  )
+  );
 }

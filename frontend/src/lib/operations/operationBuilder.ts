@@ -46,7 +46,8 @@ function buildFinalOperationObject(
     step: AddMarkStep | RemoveMarkStep | ReplaceStep | ReplaceAroundStep;
   },
   charMap: MapCharID,
-  opId: number
+  opId: number,
+  documentId: string
 ): types.CRDTOperation | null {
   const { operationType, blockId, from, to, step } = op;
 
@@ -67,7 +68,7 @@ function buildFinalOperationObject(
         Type: CRDTOpType.AddBlock,
         Origin: TEMP_NODE_ID,
         OperationID: opId,
-        DocumentID: "doc1",
+        DocumentID: documentId,
         BlockID: blockId,
         BlockType: props.type,
         Operation: new types.CRDTAddBlock({
@@ -85,7 +86,7 @@ function buildFinalOperationObject(
         Type: CRDTOpType.RemoveBlock,
         Origin: TEMP_NODE_ID,
         OperationID: opId,
-        DocumentID: "doc1",
+        DocumentID: documentId,
         BlockID: finalBlockID,
         Operation: new types.CRDTRemoveBlock({
           RemovedBlock: finalBlockID,
@@ -119,7 +120,7 @@ function buildFinalOperationObject(
         Type: CRDTOpType.UpdateBlock,
         Origin: TEMP_NODE_ID,
         OperationID: opId,
-        DocumentID: "doc1",
+        DocumentID: documentId,
         BlockID: finalBlockID,
         Operation: new types.CRDTUpdateBlock({
           AfterBlock: afterBlock,
@@ -149,7 +150,7 @@ function buildFinalOperationObject(
         Type: CRDTOpType.InsertChar,
         Origin: TEMP_NODE_ID,
         OperationID: opId,
-        DocumentID: "doc1",
+        DocumentID: documentId,
         BlockID: blockId,
         Operation: new types.CRDTInsertChar({
           AfterID: afterId,
@@ -174,7 +175,7 @@ function buildFinalOperationObject(
         Type: CRDTOpType.DeleteChar,
         Origin: TEMP_NODE_ID,
         OperationID: opId,
-        DocumentID: "doc1",
+        DocumentID: documentId,
         BlockID: blockId,
         Operation: new types.CRDTDeleteChar({
           RemovedID: removedId,
@@ -193,7 +194,7 @@ function buildFinalOperationObject(
         Type: CRDTOpType.AddMark,
         Origin: TEMP_NODE_ID,
         OperationID: opId,
-        DocumentID: "doc1",
+        DocumentID: documentId,
         BlockID: blockId,
         Operation: new types.CRDTAddMark({
           Start: start,
@@ -213,7 +214,7 @@ function buildFinalOperationObject(
         Type: CRDTOpType.RemoveMark,
         Origin: TEMP_NODE_ID,
         OperationID: opId,
-        DocumentID: "doc1",
+        DocumentID: documentId,
         BlockID: blockId,
         Operation: new types.CRDTRemoveMark({
           Start: start,

@@ -28,7 +28,8 @@ function mapTransactionToOperations(
   tr: Transform,
   oldDoc: Node,
   currentNextOpId: number,
-  currentCharIds: MapCharID
+  currentCharIds: MapCharID,
+  documentId: string
 ): [types.CRDTOperation[], number, MapCharID] {
   const intermediateOps = [];
   let nextOpId = currentNextOpId;
@@ -168,7 +169,7 @@ function mapTransactionToOperations(
 
   // Convert intermediate ops to final ops
   const finalOps = intermediateOps.map((op) =>
-    buildFinalOperationObject(tr, op, nextCharIds, nextOpId++)
+    buildFinalOperationObject(tr, op, nextCharIds, nextOpId++, documentId)
   );
 
   // Now that we have final operations, combine updateBlock operations if partial

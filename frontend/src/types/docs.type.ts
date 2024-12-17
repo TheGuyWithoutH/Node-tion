@@ -16,13 +16,15 @@ const EMPTY_DOC: PartialBlock[] = [
   },
 ];
 
-const EMPTY_DOC_HISTORY: types.CRDTOperation[] = [
+const EMPTY_DOC_HISTORY: (documentId: string) => types.CRDTOperation[] = (
+  documentId: string
+) => [
   new types.CRDTOperation({
     Type: CRDTOpType.AddBlock,
     OperationID: 1,
     Origin: TEMP_NODE_ID,
     BlockID: "1@temp",
-    DocumentID: "doc1",
+    DocumentID: documentId,
     Operation: new types.CRDTAddBlock({
       BlockType: BlockTypeName.Paragraph,
     }),
@@ -32,7 +34,7 @@ const EMPTY_DOC_HISTORY: types.CRDTOperation[] = [
     OperationID: 2,
     Origin: TEMP_NODE_ID,
     BlockID: "2@temp",
-    DocumentID: "doc1",
+    DocumentID: documentId,
     Operation: new types.CRDTAddBlock({
       BlockType: BlockTypeName.Paragraph,
       AfterBlock: "1@temp",

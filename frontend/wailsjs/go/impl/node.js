@@ -162,6 +162,10 @@ export function GetCatalog() {
   return window['go']['impl']['node']['GetCatalog']();
 }
 
+export function GetDocumentList() {
+  return window['go']['impl']['node']['GetDocumentList']();
+}
+
 export function GetDocumentOps(arg1) {
   return window['go']['impl']['node']['GetDocumentOps'](arg1);
 }

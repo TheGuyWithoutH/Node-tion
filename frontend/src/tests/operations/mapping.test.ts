@@ -46,7 +46,8 @@ describe("mapTransactionToOperations with Tiptap", () => {
       tr,
       oldDoc,
       currentNextOpId,
-      currentCharIds
+      currentCharIds,
+      "doc1"
     );
 
     expect(Array.isArray(operations)).toBe(true);
@@ -75,7 +76,8 @@ describe("mapTransactionToOperations with Tiptap", () => {
       tr,
       oldDoc,
       currentNextOpId,
-      currentCharIds
+      currentCharIds,
+      "doc1"
     );
 
     const deleteOp = operations.find(
@@ -102,7 +104,8 @@ describe("mapTransactionToOperations with Tiptap", () => {
       tr,
       oldDoc,
       currentNextOpId,
-      currentCharIds
+      currentCharIds,
+      "doc1"
     );
 
     // Check if the new block was added
@@ -139,7 +142,8 @@ describe("mapTransactionToOperations with Tiptap", () => {
       tr,
       oldDoc,
       currentNextOpId,
-      currentCharIds
+      currentCharIds,
+      "doc1"
     );
 
     const removeBlockOp = operations.find(
@@ -159,7 +163,8 @@ describe("mapTransactionToOperations with Tiptap", () => {
       tr,
       oldDoc,
       currentNextOpId,
-      currentCharIds
+      currentCharIds,
+      "doc1"
     );
 
     const addMarkOp = operations.find(
@@ -182,7 +187,8 @@ describe("mapTransactionToOperations with Tiptap", () => {
       tr,
       oldDoc,
       currentNextOpId,
-      currentCharIds
+      currentCharIds,
+      "doc1"
     );
 
     const removeMarkOp = operations.find(

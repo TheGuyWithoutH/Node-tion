@@ -12,7 +12,7 @@ import { EMPTY_DOC, EMPTY_DOC_HISTORY, MapCharID } from "@/types/docs.type";
 import { fixAddBlockOperations } from "@/lib/operations/operationMerger";
 import { CRDTOpType } from "@/types/operations.type";
 
-const useOperationsHook = () => {
+const useOperationsHook = (documentId: string) => {
   const [nextTempOpNumber, setNextTempOpNumber] = useState(100);
   const [operationsHistory, setOperationsHistory] = useState<
     types.CRDTOperation[]
@@ -71,7 +71,8 @@ const useOperationsHook = () => {
                       tr,
                       oldDoc,
                       prevNextTempOpNumber,
-                      prevCharIds
+                      prevCharIds,
+                      documentId
                     );
 
                   if (tr.steps.length && operations.length) {
@@ -199,7 +200,7 @@ const useOperationsHook = () => {
         setNextTempOpNumber(1);
 
         // Get the new document from the server and update the local document
-        CompileDocument("doc1")
+        CompileDocument(documentId)
           .then((doc) => {
             console.log(doc);
             setDocument(JSON.parse(doc));
@@ -218,7 +219,7 @@ const useOperationsHook = () => {
   useEffect(() => {
     try {
       // Get the document from the server
-      CompileDocument("doc1")
+      CompileDocument(documentId)
         .then((doc) => {
           const parsedDoc = JSON.parse(doc);
 
@@ -226,7 +227,7 @@ const useOperationsHook = () => {
           if (parsedDoc.length === 0) {
             setNextTempOpNumber(3);
             setDocument(EMPTY_DOC);
-            setOperationsHistory(EMPTY_DOC_HISTORY);
+            setOperationsHistory(EMPTY_DOC_HISTORY(documentId));
             return;
           }
 

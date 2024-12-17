@@ -350,6 +350,42 @@ func (n *node) StoreDocument(docID, doc string) error {
 	return nil
 }
 
+// GetDocumentList returns a list of documents that are stored in the peer.
+// The documents are either in the document directory or in the Editor.
+func (n *node) GetDocumentList() ([]string, error) {
+	// Get the directory to store documents
+	// docDir := n.conf.DocumentDir
+
+	// // Get the list of documents in the directory
+	// files, err := os.ReadDir(docDir)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to read directory: %w", err)
+	// }
+
+	files := make([]os.DirEntry, 0)
+
+	// Get the editor
+	editor := n.GetEditor()
+
+	// Get the list of documents in the editor
+	editorDocs := make([]string, 0, len(editor))
+
+	for docID := range editor {
+		editorDocs = append(editorDocs, docID)
+	}
+
+	// Combine the list of documents in the directory and the editor
+	docList := make([]string, 0, len(files)+len(editorDocs))
+
+	for _, file := range files {
+		docList = append(docList, file.Name())
+	}
+
+	docList = append(docList, editorDocs...)
+
+	return docList, nil
+}
+
 func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error {
 	operations := transactions.Operations
 	n.logCRDT.Debug().Msgf("SaveTransactions: %d operations", len(operations))
