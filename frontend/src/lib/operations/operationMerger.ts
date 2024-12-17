@@ -277,6 +277,7 @@ function mergeAddBlockUpdateBlock(
           DocumentID: current.DocumentID,
           BlockID: finalBlockID,
           Operation: new types.CRDTAddBlock({
+            BlockType: next.Operation.BlockType || current.Operation.BlockType,
             AfterBlock: afterBlock,
             ParentBlock: parentBlock,
             Props: finalProps,
@@ -325,6 +326,11 @@ function mergeMultipleUpdateBlockOps(
     // Merge parentBlock
     if (op.Operation.ParentBlock !== null) {
       combined.Operation.ParentBlock = op.Operation.ParentBlock;
+    }
+
+    // Merge BlockType
+    if (op.Operation.BlockType) {
+      combined.Operation.BlockType = op.Operation.BlockType;
     }
 
     // Merge props

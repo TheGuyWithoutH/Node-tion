@@ -71,7 +71,7 @@ function buildFinalOperationObject(
         DocumentID: documentId,
         BlockID: blockId,
         Operation: new types.CRDTAddBlock({
-          BlockType: props.type,
+          BlockType: props.type || "paragraph",
           AfterBlock: afterBlock,
           ParentBlock: parentBlock,
           Props: props,
