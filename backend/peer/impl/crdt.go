@@ -1244,7 +1244,6 @@ func (n *node) updateBlockReferences(ref *string) (string, error) {
 		n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)
 		return "", err
 	}
-
 	// Check if the ID is a temporary ID
 	if username == "temp" {
 		id = n.crdtState.GetTmpID(id)
