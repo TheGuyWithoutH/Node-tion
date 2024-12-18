@@ -1012,8 +1012,8 @@ func ParseID(input string) (uint64, string, error) {
 	return id, username, nil
 }
 
-// ReconstructString constructs a string in the format "ID@username" from a uint64 ID and a string username.
-func ReconstructString(id uint64, username string) (string, error) {
+// ReconstructOpID constructs a string in the format "ID@username" from a uint64 ID and a string username.
+func ReconstructOpID(id uint64, username string) (string, error) {
 	// Validate the username to ensure it is not empty.
 	if username == "" {
 		return "", fmt.Errorf("username cannot be empty")

@@ -33,26 +33,36 @@ func (n *node) CompileDocument(docID string) (string, error) {
 
 	// Loop through the blocks of the document
 	// Subsequent blocks may be children and should therefore be added to the parent block
-	for _, ops := range editor {
+	for _, blockOps := range editor {
 		// Filter the insert operations
-		insertOps, updatedBlock, removed := n.filterOps(ops, types.CRDTInsertCharType)
+		insertOps, updatedBlock, removed := n.filterOps(blockOps, types.CRDTInsertCharType)
 		if removed {
 			n.logCRDT.Debug().Msgf("block removed")
 			continue
 		}
 
-		// Sort the ops and remove the chars that are marked for deletion
-		removeOps, _, _ := n.filterOps(ops, types.CRDTDeleteCharType)
-		sortedChars := n.sortInsertOps(insertOps, removeOps)
+		// Sort the blockOps and remove the chars that are marked for deletion
+		removeOps, _, _ := n.filterOps(blockOps, types.CRDTDeleteCharType)
+		sortedChars, err := n.sortInsertOps(insertOps, removeOps)
+		if err != nil {
+			return "", xerrors.Errorf("failed to sort insert operations: %v", err)
+		}
 
 		// ---------- Block Ops
 		// Create a new block, this assumes that the first op is an addBlock op
-		Op1 := ops[0]
+		Op1 := blockOps[0]
 		if Op1.Type != types.CRDTAddBlockType {
 			return "", xerrors.Errorf("first operation must be a create block operation")
 		}
-		blockOp := Op1.Operation.(types.CRDTAddBlock)
-		blockOp.OpID = strconv.FormatUint(Op1.OperationID, 10) + "@" + Op1.Origin
+		blockOp, ok := Op1.Operation.(types.CRDTAddBlock)
+		if !ok {
+			return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
+		}
+		opID, err := ReconstructOpID(Op1.OperationID, Op1.Origin)
+		if err != nil {
+			return "", xerrors.Errorf("failed to convert operationID to string: %v", err)
+		}
+		blockOp.OpID = opID
 		blockOp = n.updateBlock(blockOp, updatedBlock) // Updates the block with the updated block props if applicable
 
 		block := n.CreateBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
@@ -61,9 +71,12 @@ func (n *node) CompileDocument(docID string) (string, error) {
 		// Create a map opID -> textStyle
 		textStyles := make(map[string]types.TextStyle, len(sortedChars))
 		// Apply the addMark operations
-		addMarkOps, _, _ := n.filterOps(ops, types.CRDTAddMarkType)
+		addMarkOps, _, _ := n.filterOps(blockOps, types.CRDTAddMarkType)
 		for _, op := range addMarkOps {
-			addMark := op.Operation.(types.CRDTAddMark)
+			addMark, ok := op.Operation.(types.CRDTAddMark)
+			if !ok {
+				return "", xerrors.Errorf("failed to cast operation to CRDTAddMark")
+			}
 			startFound := false
 			for _, char := range sortedChars {
 				if char.OpID == addMark.Start.OpID {
@@ -78,9 +91,12 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			}
 		}
 		// Remove the marks
-		deleteMarkOps, _, _ := n.filterOps(ops, types.CRDTRemoveMarkType)
+		deleteMarkOps, _, _ := n.filterOps(blockOps, types.CRDTRemoveMarkType)
 		for _, op := range deleteMarkOps {
-			deleteMark := op.Operation.(types.CRDTRemoveMark)
+			deleteMark, ok := op.Operation.(types.CRDTRemoveMark)
+			if !ok {
+				return "", xerrors.Errorf("failed to cast operation to CRDTRemoveMark")
+			}
 			startFound := false
 			for _, char := range sortedChars {
 				if char.OpID == deleteMark.Start.OpID {
@@ -220,6 +236,7 @@ func (n *node) removeMark(textStyle types.TextStyle, toRemove string) types.Text
 func (n *node) filterOps(ops []types.CRDTOperation, opType string) ([]types.CRDTOperation, *types.CRDTUpdateBlock, bool) {
 	var filteredOps []types.CRDTOperation
 	var updateBlockOp types.CRDTUpdateBlock
+	ok := false
 	for _, op := range ops {
 		if op.Type == types.CRDTRemoveBlockType {
 			return nil, &updateBlockOp, true
@@ -228,7 +245,10 @@ func (n *node) filterOps(ops []types.CRDTOperation, opType string) ([]types.CRDT
 			filteredOps = append(filteredOps, op)
 		}
 		if op.Type == types.CRDTUpdateBlockType {
-			updateBlockOp = op.Operation.(types.CRDTUpdateBlock)
+			updateBlockOp, ok = op.Operation.(types.CRDTUpdateBlock)
+			if !ok {
+				n.logCRDT.Error().Msgf("failed to cast operation to CRDTUpdateBlock")
+			}
 		}
 	}
 	return filteredOps, &updateBlockOp, false
@@ -240,8 +260,14 @@ func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
 
 	sort.Slice(ops, func(i, j int) bool {
 		// Cast the operations to the correct type
-		addBlockOp1 := ops[i].Operation.(types.CRDTAddBlock)
-		addBlockOp2 := ops[j].Operation.(types.CRDTAddBlock)
+		addBlockOp1, ok := ops[i].Operation.(types.CRDTAddBlock)
+		if !ok {
+			n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddBlock")
+		}
+		addBlockOp2, ok := ops[j].Operation.(types.CRDTAddBlock)
+		if !ok {
+			n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddBlock")
+		}
 
 		if addBlockOp1.AfterBlock == "" {
 			return true
@@ -279,7 +305,11 @@ func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
 	// Turn the operations into a slice of blockIDs
 	var blockIDs []string
 	for _, op := range ops {
-		blockIDs = append(blockIDs, strconv.FormatUint(op.OperationID, 10)+"@"+op.Origin)
+		blockID, err := ReconstructOpID(op.OperationID, op.Origin)
+		if err != nil {
+			n.logCRDT.Error().Msgf("failed to reconstruct opID: %s", err)
+		}
+		blockIDs = append(blockIDs, blockID)
 	}
 
 	return blockIDs
@@ -288,7 +318,7 @@ func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
 // sortInsertOps sorts the operations in the block by their afterID and then by their Operation id.
 // It also removes the characters that are marked for deletion.
 // Fills in the opID field of the insert operations
-func (n *node) sortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOperation) []types.CRDTInsertChar {
+func (n *node) sortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOperation) ([]types.CRDTInsertChar, error) {
 	sort.Slice(ops, func(i, j int) bool {
 		// Cast the operations to the correct type
 		insertOp1, ok := ops[i].Operation.(types.CRDTInsertChar)
@@ -343,8 +373,14 @@ func (n *node) sortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOpe
 		insertOp, ok := op.Operation.(types.CRDTInsertChar)
 		if !ok {
 			n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar")
+			return nil, xerrors.Errorf("failed to cast operation to CRDTInsertChar")
 		}
-		insertOp.OpID = strconv.FormatUint(op.OperationID, 10) + "@" + op.Origin
+		opID, err := ReconstructOpID(op.OperationID, op.Origin)
+		if err != nil {
+			n.logCRDT.Error().Msgf("failed to reconstruct opID: %s", err)
+			return nil, xerrors.Errorf("failed to reconstruct opID: %w", err)
+		}
+		insertOp.OpID = opID
 		insertOps = append(insertOps, insertOp)
 	}
 
@@ -363,7 +399,7 @@ func (n *node) sortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOpe
 			}
 		}
 	}
-	return insertOps
+	return insertOps, nil
 }
 
 func (n *node) StoreDocument(docID, doc string) error {
@@ -602,7 +638,7 @@ func (n *node) updateBlockReferences(ref *string) (string, error) {
 	}
 	id = n.crdtState.GetTmpID(id)
 	username := n.conf.Socket.GetAddress()
-	res, err := ReconstructString(id, username)
+	res, err := ReconstructOpID(id, username)
 	if err != nil {
 		n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)
 		return "", err

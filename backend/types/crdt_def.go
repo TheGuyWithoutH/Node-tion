@@ -73,12 +73,6 @@ const ( // Text Alignments
 	Justify TextAlignment = "justify"
 )
 
-var defaultBlockProps = DefaultBlockProps{
-	BackgroundColor: "white",
-	TextColor:       "black",
-	TextAlignment:   Left,
-}
-
 // BlockType is an interface that defines operations on blocks.
 type BlockType interface{}
 
