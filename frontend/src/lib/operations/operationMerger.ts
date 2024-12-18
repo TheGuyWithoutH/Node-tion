@@ -218,6 +218,7 @@ function mergeRemoveBlockAddBlock(
           DocumentID: current.DocumentID,
           BlockID: blockId,
           Operation: new types.CRDTUpdateBlock({
+            BlockType: next.Operation.BlockType || current.Operation.BlockType,
             AfterBlock: afterBlock,
             ParentBlock: parentBlock,
             Props: props,
@@ -309,7 +310,7 @@ function mergeMultipleUpdateBlockOps(
   // Merge all updateBlock ops into the first one
   const others = ops.filter((op) => op.Type !== CRDTOpType.UpdateBlock);
   // Start with the first updateBlock op as baseline
-  let combined = { ...updateOps[0] };
+  let combined = new types.CRDTOperation({ ...updateOps[0] });
 
   for (let i = 1; i < updateOps.length; i++) {
     const op = updateOps[i];
@@ -335,10 +336,10 @@ function mergeMultipleUpdateBlockOps(
 
     // Merge props
     if (op.Operation.Props && Object.keys(op.Operation.Props).length > 0) {
-      combined.Operation.Props = {
+      combined.Operation.Props = new types.DefaultBlockProps({
         ...(combined.Operation.Props || {}),
         ...op.Operation.Props,
-      };
+      });
     }
   }
 

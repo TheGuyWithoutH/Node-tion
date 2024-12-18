@@ -74,7 +74,12 @@ function buildFinalOperationObject(
           BlockType: props.type || "paragraph",
           AfterBlock: afterBlock,
           ParentBlock: parentBlock,
-          Props: props,
+          Props: new types.DefaultBlockProps({
+            BackgroundColor: props.backgroundColor || "",
+            TextColor: props.textColor || "",
+            TextAlign: props.textAlign || "",
+            Level: props.level || 1,
+          }),
         }),
       });
     }
@@ -125,7 +130,13 @@ function buildFinalOperationObject(
         Operation: new types.CRDTUpdateBlock({
           AfterBlock: afterBlock,
           ParentBlock: parentBlock,
-          Props: props,
+          BlockType: props.type || "paragraph",
+          Props: new types.DefaultBlockProps({
+            BackgroundColor: props.backgroundColor || "",
+            TextColor: props.textColor || "",
+            TextAlign: props.textAlign || "",
+            Level: props.level || 1,
+          }),
         }),
       });
     }
