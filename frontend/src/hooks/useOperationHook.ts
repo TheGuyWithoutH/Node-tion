@@ -104,19 +104,19 @@ const useOperationsHook = (documentId: string) => {
                               BlockType:
                                 lastOp.Operation.Props.type ||
                                 currentOp.Operation.Props.type,
-                              Operation: {
+                              Operation: new types.CRDTUpdateBlock({
                                 ...lastOp.Operation,
-                                Props: {
+                                Props: new types.DefaultBlockProps({
                                   ...lastOp.Operation.Props,
                                   ...currentOp.Operation.Props,
-                                },
+                                }),
                                 AfterBlock:
                                   currentOp.Operation.AfterBlock ||
                                   lastOp.Operation.AfterBlock,
                                 ParentBlock:
                                   currentOp.Operation.ParentBlock ||
                                   lastOp.Operation.ParentBlock,
-                              },
+                              }),
                             });
 
                             // Remove the last two and replace with merged
@@ -193,7 +193,7 @@ const useOperationsHook = (documentId: string) => {
     // If there are no operations or only the default ones, only update the document from the server
     if (
       !operationsHistory.length ||
-      operationsHistory === EMPTY_DOC_HISTORY(documentId)
+      operationsHistory.toString() === EMPTY_DOC_HISTORY(documentId).toString()
     ) {
       // Get the new document from the server and update the local document
       CompileDocument("doc1")
