@@ -78,7 +78,7 @@ func main() {
 		log.Fatalf("Error finding interface: %v", err)
 	}
 
-	sock, err := trans.CreateSocket(ip.String() + ":0")
+	sock, err := trans.CreateSocket(ip.String() + ":8000")
 	if err != nil {
 		log.Fatal(err)
 		return
