@@ -2,23 +2,25 @@ package main
 
 import (
 	"embed"
-	"log"
 	"fmt"
+	"log"
+	"net"
 	"os"
 	"path/filepath"
-	
+
+	"github.com/jackpal/gateway"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
-	
+
 	"Node-tion/backend/peer"
 	"Node-tion/backend/peer/impl"
-	"Node-tion/backend/transport/udp"
 	"Node-tion/backend/registry/standard"
 	"Node-tion/backend/storage/inmemory"
+	"Node-tion/backend/transport/udp"
 )
 
 //go:embed all:frontend/dist
@@ -27,13 +29,55 @@ var assets embed.FS
 //go:embed build/appicon.png
 var icon []byte
 
+// findInterfaceByIP returns the network interface and the specific IP address
+// associated with the given IP.
+func findInterfaceByIP(ip net.IP) (*net.Interface, net.IP, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, iface := range interfaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		for _, addr := range addrs {
+			var ipNet *net.IPNet
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ipNet = v
+			case *net.IPAddr:
+				ipNet = &net.IPNet{IP: v.IP, Mask: v.IP.DefaultMask()}
+			}
+
+			if ipNet != nil && ipNet.Contains(ip) {
+				return &iface, ipNet.IP, nil
+			}
+		}
+	}
+
+	return nil, nil, fmt.Errorf("no interface found for IP: %s", ip.String())
+}
+
 func main() {
 
 	var peerFactory = impl.NewPeer
 
 	trans := udp.NewUDP()
 
-	sock, err := trans.CreateSocket("127.0.0.1:0")
+	ip, err := gateway.DiscoverGateway()
+	if err != nil {
+		log.Fatalf("Error discovering gateway: %v", err)
+	}
+
+	_, ip, err = findInterfaceByIP(ip)
+	if err != nil {
+		log.Fatalf("Error finding interface: %v", err)
+	}
+
+	sock, err := trans.CreateSocket(ip.String() + ":0")
 	if err != nil {
 		log.Fatal(err)
 		return

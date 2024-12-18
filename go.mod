@@ -14,6 +14,8 @@ require (
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 )
 
+require github.com/stretchr/objx v0.5.2 // indirect
+
 require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
@@ -21,6 +23,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.4.0 // indirect
+	github.com/jackpal/gateway v1.0.15
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/labstack/echo/v4 v4.10.2 // indirect
