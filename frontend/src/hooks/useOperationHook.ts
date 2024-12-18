@@ -186,11 +186,15 @@ const useOperationsHook = (documentId: string) => {
     },
   });
 
+  // Send the operations to the backend
   const sendOperations = () => {
     setDocument([]);
 
-    // If there are no operations, only update the document from the server
-    if (!operationsHistory.length) {
+    // If there are no operations or only the default ones, only update the document from the server
+    if (
+      !operationsHistory.length ||
+      operationsHistory === EMPTY_DOC_HISTORY(documentId)
+    ) {
       // Get the new document from the server and update the local document
       CompileDocument("doc1")
         .then((doc) => {
