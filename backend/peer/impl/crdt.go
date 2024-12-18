@@ -659,21 +659,21 @@ func (n *node) updateBlockReferences(ref *string) (string, error) {
 		return "", err
 	}
 	
-	// Check if the ID is not a temporary ID
-	if username == n.conf.Socket.GetAddress() {
-		return *ref, nil
+	// Check if the ID is a temporary ID
+	if username == "temp" {
+		id = n.crdtState.GetTmpID(id)
+		username = n.conf.Socket.GetAddress()
+		res, err := ReconstructOpID(id, username)
+		if err != nil {
+			n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)
+			return "", err
+		}
+		n.logCRDT.Debug().Msgf("updateBlockReferences: %s -> %s", *ref, res)
+
+		return res, nil
 	}
 
-	id = n.crdtState.GetTmpID(id)
-	username = n.conf.Socket.GetAddress()
-	res, err := ReconstructOpID(id, username)
-	if err != nil {
-		n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)
-		return "", err
-	}
-	n.logCRDT.Debug().Msgf("updateBlockReferences: %s -> %s", *ref, res)
-
-	return res, nil
+	return *ref, nil
 }
 
 func (n *node) processAndBroadcast(transactions types.CRDTOperationsMessage) error {
