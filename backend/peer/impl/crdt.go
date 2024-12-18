@@ -211,6 +211,8 @@ func (n *node) addMark(textStyle types.TextStyle, toAdd types.CRDTAddMark) types
 		textStyle.Strikethrough = true
 	case types.TextColor:
 		textStyle.TextColor = toAdd.Options.Color
+	case types.BackgroundColor:
+		textStyle.BackgroundColor = toAdd.Options.Color
 	}
 
 	return textStyle
