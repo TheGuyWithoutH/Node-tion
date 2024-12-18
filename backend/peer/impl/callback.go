@@ -5,11 +5,12 @@ import (
 	"Node-tion/backend/transport"
 	"Node-tion/backend/types"
 	"encoding/hex"
-	"golang.org/x/xerrors"
 	"math/rand"
 	"regexp"
 	"strconv"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 // ChatMessageCallback logs the chat message
@@ -714,6 +715,13 @@ func (n *node) CRDTOperationsMessageCallback(msg types.Message, pkt transport.Pa
 	}
 
 	n.logCRDT.Info().Msgf("Received CRDTOperationsMessage from %s, I am %s", pkt.Header.Source, n.conf.Socket.GetAddress())
+
+	// Update our CRDTState with the operations
+	for _, op := range crdtMsg.Operations {
+		if n.crdtState.GetState(op.DocumentID) < op.OperationID {
+			n.crdtState.SetState(op.DocumentID, op.OperationID)
+		}
+	}
 
 	err := n.UpdateEditor(crdtMsg.Operations)
 	if err != nil {
