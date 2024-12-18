@@ -72,7 +72,8 @@ const useOperationsHook = (documentId: string) => {
                         tr,
                         oldDoc,
                         prevNextTempOpNumber,
-                        prevCharIds
+                        prevCharIds,
+                        documentId
                       );
 
                     console.log("Next char ids", _nextCharIds);
