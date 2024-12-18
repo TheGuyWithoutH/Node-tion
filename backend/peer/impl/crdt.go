@@ -151,7 +151,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 	// We need to iterate over the blocks in the correct order:
 	// Get the indices of the blocks and sort them by the block id
 	docBlockOps := n.sortAddBlockOpIDs(CRDTAddBlockOps)
-	n.logCRDT.Debug().Msgf("Sorted blockIDs %s", docBlockOps)
+	n.logCRDT.Info().Msgf("Sorted blockIDs %s", docBlockOps)
 
 	for _, blockID := range docBlockOps {
 		n.logCRDT.Debug().Msgf("block %s being compiled", blockID)
@@ -658,7 +658,7 @@ func (n *node) updateBlockReferences(ref *string) (string, error) {
 		n.logCRDT.Error().Msgf("updateBlockReferences: %s", err)
 		return "", err
 	}
-	
+
 	// Check if the ID is a temporary ID
 	if username == "temp" {
 		id = n.crdtState.GetTmpID(id)
