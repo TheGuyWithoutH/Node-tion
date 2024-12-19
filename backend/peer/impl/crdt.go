@@ -65,7 +65,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 		blockOp.OpID = opID
 		blockOp = n.updateBlock(blockOp, updatedBlock) // Updates the block with the updated block props if applicable
 
-		block := n.CreateBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
+		block := n.createBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
 
 		// ---------- Mark Ops
 		// Create a map opID -> textStyle
@@ -658,7 +658,7 @@ func (n *node) processAndBroadcast(transactions types.CRDTOperationsMessage) err
 	return n.Broadcast(msg)
 }
 
-func (n *node) CreateBlock(blockType types.BlockTypeName, props types.DefaultBlockProps, blockID string) types.BlockType {
+func (n *node) createBlock(blockType types.BlockTypeName, props types.DefaultBlockProps, blockID string) types.BlockType {
 	switch blockType {
 	case types.ParagraphBlockType:
 		return &types.ParagraphBlock{

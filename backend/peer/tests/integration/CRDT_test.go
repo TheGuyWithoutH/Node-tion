@@ -22,7 +22,7 @@ import (
 func Test_CRDT_Integration_Pipeline(t *testing.T) {
 	transp := channel.NewTransport()
 
-	node1 := z.NewTestNode(t, studentFac, transp, "127.0.0.1:0")
+	node1 := z.NewTestNode(t, studentFac, transp, "127.0.0.1:8000")
 	defer node1.Stop()
 
 	docID := "0@" + node1.GetAddr()
@@ -39,10 +39,11 @@ func Test_CRDT_Integration_Pipeline(t *testing.T) {
 	time.Sleep(time.Millisecond * 200)
 
 	// ValIDate the document is compiled correctly
-	_, err = node1.CompileDocument("0@" + node1.GetAddr())
+	doc, err := node1.CompileDocument("0@" + node1.GetAddr())
 	require.NoError(t, err)
 
-	//  Yasmin's functions for checking the document json content
+	expectedDoc := "[{\"id\":\"1@127.0.0.1:8000\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"\",\"backgroundColor\":\"\",\"textAlignment\":\"\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@127.0.0.1:8000\",\"3@127.0.0.1:8000\",\"4@127.0.0.1:8000\",\"5@127.0.0.1:8000\",\"6@127.0.0.1:8000\",\"7@127.0.0.1:8000\",\"8@127.0.0.1:8000\",\"9@127.0.0.1:8000\",\"10@127.0.0.1:8000\",\"11@127.0.0.1:8000\",\"12@127.0.0.1:8000\"],\"text\":\"Hello World\",\"styles\":{}}],\"children\":[]}]"
+	require.JSONEq(t, expectedDoc, doc)
 }
 
 // Test_CRDT_Integration_Strong_Eventual_Consistency runs the CRDT pipeline with two nodes.
