@@ -513,7 +513,15 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 			// Check if the block has no children yet
 			if document[index].Children == nil {
 				document[index].Children = make([]types.BlockFactory, 0)
-	
+
+				newBlock := types.BlockFactory{
+					ID:        addBlockOp.OpID,
+					BlockType: addBlockOp.BlockType,
+					Props:     addBlockOp.Props,
+					Children:  nil,
+				}
+				document[index].Children = append(document[index].Children, newBlock)
+			} else {
 				// Check where to add the block in the children
 				for i := range document[index].Children {
 					return n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
@@ -521,7 +529,7 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 			}
 		} else {
 			// Check if the block is a child block of a child block
-			if document[index].Children == nil {
+			if document[index].Children != nil {
 				for i := range document[index].Children {
 					return n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
 				}
