@@ -325,9 +325,7 @@ function mergeMultipleUpdateBlockOps(
     }
 
     // Merge parentBlock
-    if (op.Operation.ParentBlock !== null) {
-      combined.Operation.ParentBlock = op.Operation.ParentBlock;
-    }
+    combined.Operation.ParentBlock = op.Operation.ParentBlock;
 
     // Merge BlockType
     if (op.Operation.BlockType) {

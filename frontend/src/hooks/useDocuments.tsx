@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GetDocumentList } from "../../wailsjs/go/impl/node";
+import { AddNewDocument, GetDocumentList } from "../../wailsjs/go/impl/node";
 import { toast } from "./use-toast";
 
 const useDocumentsHooks = (navigate: (url: string) => void) => {
@@ -23,6 +23,7 @@ const useDocumentsHooks = (navigate: (url: string) => void) => {
     // Check if the document name is unique.
     if (name && documentList.indexOf(name) === -1) {
       setDocumentList([...documentList, name]);
+      AddNewDocument(name);
       navigate(`/editor/${name}`);
     } else {
       toast({

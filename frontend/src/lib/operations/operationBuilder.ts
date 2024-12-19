@@ -134,7 +134,7 @@ function buildFinalOperationObject(
           Props: new types.DefaultBlockProps({
             BackgroundColor: props.backgroundColor || "",
             TextColor: props.textColor || "",
-            TextAlign: props.textAlign || "",
+            TextAlignment: props.textAlignment || "",
             Level: props.level || 1,
           }),
         }),

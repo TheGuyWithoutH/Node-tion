@@ -14,7 +14,7 @@ import { CRDTOpType } from "@/types/operations.type";
 import { flushSync } from "react-dom";
 
 const useOperationsHook = (documentId: string) => {
-  const [nextTempOpNumber, setNextTempOpNumber] = useState(100);
+  const [nextTempOpNumber, setNextTempOpNumber] = useState(1);
   const [operationsHistory, setOperationsHistory] = useState<
     types.CRDTOperation[]
   >([]);
@@ -58,11 +58,6 @@ const useOperationsHook = (documentId: string) => {
               // Perform the operations in a flushSync to ensure that the state is updated
               flushSync(() => {
                 setCharIds((prevCharIds) => {
-                  let nextCharIds = { ...prevCharIds } as Record<
-                    string,
-                    string[]
-                  >;
-
                   // We need to embed the operations mapping in the next op number logic
                   // to ensure that we get the right previous operation number
                   setNextTempOpNumber((prevNextTempOpNumber) => {
@@ -81,7 +76,11 @@ const useOperationsHook = (documentId: string) => {
                     if (tr.steps.length && operations.length) {
                       // Add the operations to the history
                       setOperationsHistory((prev) => {
-                        let newOperations = operations;
+                        let newOperations = operations.filter(
+                          (op) =>
+                            op.Type !== CRDTOpType.UpdateBlock ||
+                            op.BlockID !== undefined
+                        );
                         let newOperationHistory = [...prev, ...newOperations];
 
                         // Check last operation in history if it's addBlock
@@ -94,6 +93,7 @@ const useOperationsHook = (documentId: string) => {
                           if (
                             lastOp.Type === CRDTOpType.AddBlock &&
                             currentOp.Type === CRDTOpType.UpdateBlock &&
+                            currentOp.BlockID &&
                             (!currentOp.BlockID.endsWith("@temp") ||
                               !lastOp.BlockID.endsWith("@temp"))
                           ) {
@@ -104,7 +104,7 @@ const useOperationsHook = (documentId: string) => {
                               BlockType:
                                 lastOp.Operation.Props.type ||
                                 currentOp.Operation.Props.type,
-                              Operation: new types.CRDTUpdateBlock({
+                              Operation: new types.CRDTAddBlock({
                                 ...lastOp.Operation,
                                 Props: new types.DefaultBlockProps({
                                   ...lastOp.Operation.Props,
@@ -138,13 +138,15 @@ const useOperationsHook = (documentId: string) => {
                       });
 
                       // Update the charIds
-                      nextCharIds = _nextCharIds;
+                      for (const charId in _nextCharIds) {
+                        prevCharIds[charId] = _nextCharIds[charId];
+                      }
                     }
 
                     return newNextTempOpId;
                   });
 
-                  return nextCharIds;
+                  return prevCharIds;
                 });
               });
 
@@ -273,7 +275,7 @@ const useOperationsHook = (documentId: string) => {
       setDocument(mockDocument);
       setCharIds(extractCharIds(mockDocument));
     }
-  }, []);
+  }, [documentId]);
 
   return [
     StepsTracker,

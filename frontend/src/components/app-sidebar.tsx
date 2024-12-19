@@ -63,10 +63,12 @@ export function AppSidebar({
           title: "Test Document",
           url: "/editor/doc1",
         },
-        ...documentList.map((doc) => ({
-          title: doc.slice(0, 10),
-          url: `/editor/${doc}`,
-        })),
+        ...documentList
+          .filter((doc) => doc !== "doc1")
+          .map((doc) => ({
+            title: doc.slice(0, 10),
+            url: `/editor/${doc}`,
+          })),
       ],
     },
     {

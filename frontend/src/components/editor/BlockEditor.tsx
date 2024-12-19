@@ -13,6 +13,7 @@ const BlockEditor = ({
   // Creates a new editor instance.
   const editor = useCreateBlockNote({
     initialContent: documentContent,
+    trailingBlock: false,
     _tiptapOptions: {
       extensions: [operationExtension],
     },
