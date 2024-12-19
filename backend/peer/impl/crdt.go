@@ -21,7 +21,7 @@ import (
  * 4. Apply the non mark operations.
  * 5. Apply the mark operations.
  */
-func (n *node) CompileDocument(docID string) (string, error) {
+func (n *node) CompileDocumentOld(docID string) (string, error) {
 	editor := n.GetDocumentOps(docID)
 	if editor == nil {
 		return "", xerrors.Errorf("document not found")
@@ -208,7 +208,7 @@ func (n *node) applyRemoveMark(textStyles map[string]types.TextStyle, charIDs []
 	}
 }
 
-func (n *node) createBlockContent(ops []types.CRDTOperation) []types.StyledText {
+func (n *node) createBlockContent(ops []types.CRDTOperation) []types.InlineContent {
 
 	var text string
 	var textStyles map[string]types.TextStyle // opID -> textStyle
@@ -276,7 +276,7 @@ func (n *node) createBlockContent(ops []types.CRDTOperation) []types.StyledText 
 		text = text[:pos] + text[pos+1:]
 	}
 
-	return nil
+	return n.generateInlineContent(text, textStyles, charIDs)
 }
 
 func (n *node) generateInlineContent(text string, textStyles map[string]types.TextStyle, charIDs []string) []types.InlineContent {
@@ -333,7 +333,7 @@ func compareTextStyle(a types.TextStyle, b types.TextStyle) bool {
 	return true
 }
 
-func (n *node) CompileDocumentNew(docID string) (string, error) {
+func (n *node) CompileDocument(docID string) (string, error) {
 	document := make([]types.BlockFactory, 0)
 
 	// Step 1: Populate document blocks in order
@@ -389,6 +389,13 @@ func (n *node) CompileDocumentNew(docID string) (string, error) {
 	// Step 2: Populate block content for each block in the document
 	finalDocument := make([]types.BlockType, 0)
 
+	for _, block := range document {
+		// Create the block
+		blockOperations := n.GetBlockOps(docID, block.ID)
+		newBlock := n.createBlock(docID, block, blockOperations)
+		finalDocument = append(finalDocument, newBlock)
+	}
+
 	// Step 3: Serialize the document
 	// Now that we have the final document, we can convert it to a JSON string
 	finalJSON := "[ "
@@ -402,6 +409,81 @@ func (n *node) CompileDocumentNew(docID string) (string, error) {
 	finalJSON += "]"
 
 	return finalJSON, nil
+}
+
+func (n *node) createBlock(docID string, block types.BlockFactory, blockOperations []types.CRDTOperation) types.BlockType {
+	// Create the children blocks if applicable
+	var childrenBlocks []types.BlockType
+
+	if block.Children != nil {
+		for _, childBlock := range block.Children {
+			childBlockOperations := n.GetBlockOps(docID, childBlock.ID)
+			childrenBlocks = append(childrenBlocks, n.createBlock(docID, childBlock, childBlockOperations))
+		}
+	}
+
+	// Create the block based on the block type and props, populate the content and children
+	switch block.BlockType {
+	case types.ParagraphBlockType:
+		newBlock := &types.ParagraphBlock{
+			BlockType: nil,
+			Default:   block.Props,
+			ID:        block.ID,
+			Content:   n.createBlockContent(blockOperations),
+			Children:  childrenBlocks,
+		}
+		return newBlock
+	case types.HeadingBlockType:
+		newBlock := &types.HeadingBlock{
+			BlockType: nil,
+			Default:   block.Props,
+			ID:        block.ID,
+			Level:     block.Props.Level,
+			Content:   n.createBlockContent(blockOperations),
+			Children:  childrenBlocks,
+		}
+		return newBlock
+	case types.BulletedListBlockType:
+		newBlock := &types.BulletedListBlock{
+			BlockType: nil,
+			Default:   block.Props,
+			ID:        block.ID,
+			Content:   n.createBlockContent(blockOperations),
+			Children:  childrenBlocks,
+		}
+		return newBlock
+	case types.NumberedListBlockType:
+		newBlock := &types.NumberedListBlock{
+			BlockType: nil,
+			Default:   block.Props,
+			ID:        block.ID,
+			Content:   n.createBlockContent(blockOperations),
+			Children:  childrenBlocks,
+		}
+		return newBlock
+	case types.ImageBlockType:
+		newBlock := &types.ImageBlock{
+			BlockType:    nil,
+			Default:      block.Props,
+			ID:        	  block.ID,
+			URL:          "",
+			Caption:      "",
+			PreviewWidth: 0,
+			Children:     nil,
+		}
+		return newBlock
+	case types.TableBlockType:
+		newBlock := &types.TableBlock{
+			BlockType: nil,
+			Default:   block.Props,
+			ID:        block.ID,
+			Content:   types.TableContent{},
+			Children:  nil,
+		}
+		return newBlock
+	default:
+		return nil
+	}
 }
 
 // checkAddBlockAtPosition checks if the addBlockOp should be added to the document at the current index
