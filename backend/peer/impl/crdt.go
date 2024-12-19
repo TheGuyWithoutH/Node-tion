@@ -178,15 +178,15 @@ func (n *node) CompileDocumentNew(docID string) (string, error) {
 			if !ok {
 				return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
 			}
-
+			
 			// Add the block to the document in the correct spot
-			for i, _ := range document {
-				if checkAddBlockAtPosition(document, i, addBlockOp) {
+			added := false
+			for i := range document {
+				added, document = checkAddBlockAtPosition(document, i, addBlockOp)
+				if added {
 					break
 				}
 			}
-
-			break
 		case types.CRDTRemoveBlockType:
 			removeBlockOp, ok := blockChangeOp.Operation.(types.CRDTRemoveBlock)
 			if !ok {
@@ -194,13 +194,13 @@ func (n *node) CompileDocumentNew(docID string) (string, error) {
 			}
 
 			// Remove the block from the document
-			for i, _ := range document {
-				if checkRemoveBlockAtPosition(document, i, removeBlockOp) {
+			removed := false
+			for i := range document {
+				removed, document = checkRemoveBlockAtPosition(document, i, removeBlockOp)
+				if removed {
 					break
 				}
 			}
-
-			break
 		case types.CRDTUpdateBlockType:
 			updateBlockOp, ok := blockChangeOp.Operation.(types.CRDTUpdateBlock)
 			if !ok {
@@ -208,13 +208,12 @@ func (n *node) CompileDocumentNew(docID string) (string, error) {
 			}
 
 			updated := false
+			updatedBlock := &types.BlockFactory{}
 
 			// Update the block in the document
-			for i, _ := range document {
-				updated = checkUpdateBlockAtPosition(document, i, updateBlockOp, updated)
+			for i := range document {
+				updated, updatedBlock, document = checkUpdateBlockAtPosition(document, i, updateBlockOp, updated, updatedBlock)
 			}
-
-			break
 		}
 	}
 
@@ -238,7 +237,7 @@ func (n *node) CompileDocumentNew(docID string) (string, error) {
 
 // checkAddBlockAtPosition checks if the addBlockOp should be added to the document at the current index
 // Returns true if the block was added, false otherwise
-func checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockOp types.CRDTAddBlock) bool {
+func checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockOp types.CRDTAddBlock) (bool, []types.BlockFactory) {
 	added := false
 
 	// Check if the block is going after the current block
@@ -274,12 +273,12 @@ func checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockO
 		}
 	}
 
-	return added
+	return added, document
 }
 
 // checkRemoveBlockAtPosition checks if the removeBlockOp should be removed from the document at the current index
 // Returns true if the block was removed, false otherwise
-func checkRemoveBlockAtPosition(document []types.BlockFactory, index int, removeBlockOp types.CRDTRemoveBlock) bool {
+func checkRemoveBlockAtPosition(document []types.BlockFactory, index int, removeBlockOp types.CRDTRemoveBlock) (bool, []types.BlockFactory) {
 	removed := false
 
 	// Check if the block is going after the current block
@@ -295,25 +294,39 @@ func checkRemoveBlockAtPosition(document []types.BlockFactory, index int, remove
 		}
 	}
 
-	return removed
+	return removed, document
 }
 
-func checkUpdateBlockAtPosition(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock, updated bool) bool {
+// checkUpdateBlockAtPosition checks if the updateBlockOp should be updated in the document at the current index
+// Returns true if the block was updated, false otherwise
+// Also returns the updated block reference
+func checkUpdateBlockAtPosition(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock, updated bool, updatedBlock *types.BlockFactory) (bool, *types.BlockFactory, []types.BlockFactory) {
+	// Check if block was already updated and this is a block with the same ID
+	if updated && document[index].ID == updateBlockOp.UpdatedBlock {
+		// Apply previous children to the updated block
+		updatedBlock.Children = document[index].Children
+
+		// Delete the old block
+		document = append(document[:index], document[index+1:]...)
+		return true, updatedBlock, document
+	}
+
 	// Check if the block is going after the current block
 	if document[index].ID == updateBlockOp.UpdatedBlock {
 		document[index].BlockType = updateBlockOp.BlockType
 		document[index].Props = updateBlockOp.Props
 		updated = true
+		updatedBlock = &document[index]
 	}
 
 	// Check if the block is a child block
 	if document[index].Children != nil {
 		for i := range document[index].Children {
-			return checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated)
+			return checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated, updatedBlock)
 		}
 	}
 
-	return updated
+	return updated, updatedBlock, document
 }
 			
 
