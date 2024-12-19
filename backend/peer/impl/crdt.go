@@ -344,6 +344,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 		switch blockChangeOp.Type {
 		case types.CRDTAddBlockType:
 			addBlockOp, ok := blockChangeOp.Operation.(types.CRDTAddBlock)
+			addBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
 			if !ok {
 				return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
 			}
@@ -369,6 +370,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			}
 		case types.CRDTRemoveBlockType:
 			removeBlockOp, ok := blockChangeOp.Operation.(types.CRDTRemoveBlock)
+			removeBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
 			if !ok {
 				return "", xerrors.Errorf("failed to cast operation to CRDTRemoveBlock")
 			}
