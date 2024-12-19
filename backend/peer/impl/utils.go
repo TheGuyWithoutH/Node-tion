@@ -727,10 +727,20 @@ func (n *node) UpdateEditor(ops []types.CRDTOperation) error {
 			n.editor.ed[op.DocumentID][op.BlockID] = make([]types.CRDTOperation, 0)
 		}
 
+		if _, exists := n.editor.ed[op.DocumentID][op.DocumentID]; !exists {
+			n.editor.ed[op.DocumentID][op.BlockID] = make([]types.CRDTOperation, 0)
+		}
+
 		// cast the operation to the correct type
 		n.CastOperation(&op)
 
-		n.editor.ed[op.DocumentID][op.BlockID] = append(n.editor.ed[op.DocumentID][op.BlockID], op)
+		// check if the operation is a Block operation
+		if op.Type == types.CRDTAddBlockType || op.Type == types.CRDTRemoveBlockType || op.Type == types.CRDTUpdateBlockType {
+			n.editor.ed[op.DocumentID][op.DocumentID] = append(n.editor.ed[op.DocumentID][op.DocumentID], op)
+		} else {
+			n.editor.ed[op.DocumentID][op.BlockID] = append(n.editor.ed[op.DocumentID][op.BlockID], op)
+		}
+
 	}
 	return nil
 }
