@@ -361,7 +361,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 				document = append(document, newBlock)
 			} else {
 				for i := range document {
-					added, document = checkAddBlockAtPosition(document, i, addBlockOp)
+					added, document = n.checkAddBlockAtPosition(document, i, addBlockOp)
 					if added {
 						break
 					}
@@ -399,11 +399,14 @@ func (n *node) CompileDocument(docID string) (string, error) {
 
 	// Step 2: Populate block content for each block in the document
 	finalDocument := make([]types.BlockType, 0)
+	n.logCRDT.Debug().Msgf("document %s being compiled, factory: %v", docID, document)
 
 	for _, block := range document {
+		n.logCRDT.Debug().Msgf("block %s being compiled, factory: %v", block.ID, block)
 		// Create the block
 		blockOperations := n.GetBlockOps(docID, block.ID)
 		newBlock := n.createBlock(docID, block, blockOperations)
+		n.logCRDT.Debug().Msgf("block %s added to finalDoc", block.ID)
 		finalDocument = append(finalDocument, newBlock)
 	}
 
@@ -476,7 +479,7 @@ func (n *node) createBlock(docID string, block types.BlockFactory, blockOperatio
 		newBlock := &types.ImageBlock{
 			BlockType:    nil,
 			Default:      block.Props,
-			ID:        	  block.ID,
+			ID:           block.ID,
 			URL:          "",
 			Caption:      "",
 			PreviewWidth: 0,
@@ -499,16 +502,16 @@ func (n *node) createBlock(docID string, block types.BlockFactory, blockOperatio
 
 // checkAddBlockAtPosition checks if the addBlockOp should be added to the document at the current index
 // Returns true if the block was added, false otherwise
-func checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockOp types.CRDTAddBlock) (bool, []types.BlockFactory) {
+func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockOp types.CRDTAddBlock) (bool, []types.BlockFactory) {
 	added := false
 
 	// Check if the block is going after the current block
 	if addBlockOp.AfterBlock == "" || document[index].ID == addBlockOp.AfterBlock {
 		newBlock := types.BlockFactory{
-			ID:       addBlockOp.OpID,
+			ID:        addBlockOp.OpID,
 			BlockType: addBlockOp.BlockType,
-			Props:    addBlockOp.Props,
-			Children: nil,
+			Props:     addBlockOp.Props,
+			Children:  nil,
 		}
 		document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
 		added = true
@@ -521,20 +524,22 @@ func checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockO
 			document[index].Children = make([]types.BlockFactory, 0)
 
 			newBlock := types.BlockFactory{
-				ID:       addBlockOp.OpID,
+				ID:        addBlockOp.OpID,
 				BlockType: addBlockOp.BlockType,
-				Props:    addBlockOp.Props,
-				Children: nil,
+				Props:     addBlockOp.Props,
+				Children:  nil,
 			}
 
 			document[index].Children = append(document[index].Children, newBlock)
 			added = true
 		} else {
 			// Recursively check the children blocks
-			return checkAddBlockAtPosition(document[index].Children, index, addBlockOp)
+			return n.checkAddBlockAtPosition(document[index].Children, index, addBlockOp)
 		}
 	}
 
+	n.logCRDT.Debug().Msgf("block %s added to finalDoc in CheckAddBlockPos", addBlockOp.OpID)
+	n.logCRDT.Debug().Msgf("document %v", document)
 	return added, document
 }
 
@@ -772,6 +777,7 @@ func (n *node) sortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOpe
 			n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar: %v", insertOp2)
 		}
 
+		//TODO: Add these lines at the end
 		if insertOp1.AfterID == "" {
 			return true
 		}
