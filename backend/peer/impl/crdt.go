@@ -350,10 +350,21 @@ func (n *node) CompileDocument(docID string) (string, error) {
 
 			// Add the block to the document in the correct spot
 			added := false
-			for i := range document {
-				added, document = checkAddBlockAtPosition(document, i, addBlockOp)
-				if added {
-					break
+			if len(document) == 0 {
+				// If the document is empty, add the block to the beginning
+				newBlock := types.BlockFactory{
+					ID:       addBlockOp.OpID,
+					BlockType: addBlockOp.BlockType,
+					Props:    addBlockOp.Props,
+					Children: nil,
+				}
+				document = append(document, newBlock)
+			} else {
+				for i := range document {
+					added, document = checkAddBlockAtPosition(document, i, addBlockOp)
+					if added {
+						break
+					}
 				}
 			}
 		case types.CRDTRemoveBlockType:
@@ -492,7 +503,7 @@ func checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockO
 	added := false
 
 	// Check if the block is going after the current block
-	if document[index].ID == addBlockOp.AfterBlock {
+	if addBlockOp.AfterBlock == "" || document[index].ID == addBlockOp.AfterBlock {
 		newBlock := types.BlockFactory{
 			ID:       addBlockOp.OpID,
 			BlockType: addBlockOp.BlockType,
