@@ -505,18 +505,6 @@ func (n *node) createBlock(docID string, block types.BlockFactory, blockOperatio
 func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockOp types.CRDTAddBlock) (bool, []types.BlockFactory) {
 	added := false
 
-	// Check if the block is going after the current block
-	if addBlockOp.AfterBlock == "" || document[index].ID == addBlockOp.AfterBlock {
-		newBlock := types.BlockFactory{
-			ID:        addBlockOp.OpID,
-			BlockType: addBlockOp.BlockType,
-			Props:     addBlockOp.Props,
-			Children:  nil,
-		}
-		document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
-		added = true
-	}
-
 	// Check if the block is a child block
 	if addBlockOp.ParentBlock != "" {
 		if addBlockOp.ParentBlock == document[index].ID {
@@ -526,15 +514,14 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 	
 				// Check where to add the block in the children
 				for i := range document[index].Children {
-					return checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+					return n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
 				}
 			}
 		} else {
 			// Check if the block is a child block of a child block
 			if document[index].Children == nil {
-				// Check if the block is a child block
 				for i := range document[index].Children {
-					return checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+					return n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
 				}
 			}
 		}
