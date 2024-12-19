@@ -547,8 +547,10 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 			document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
 			added = true
 		} else {
-			// Recursively check the children blocks
-			return n.checkAddBlockAtPosition(document[index].Children, index, addBlockOp)
+			if document[index].Children != nil {
+				// Recursively check the children blocks
+				return n.checkAddBlockAtPosition(document[index].Children, index, addBlockOp)
+			}
 		}
 	}
 
