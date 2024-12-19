@@ -76,6 +76,15 @@ const ( // Text Alignments
 // BlockType is an interface that defines operations on blocks.
 type BlockType interface{}
 
+type BlockFactory struct {
+	BlockType BlockTypeName
+	Props   DefaultBlockProps
+	ID        string
+	Deleted	  bool
+	Children  []BlockFactory
+}
+
+
 // InlineContent is an interface that defines operations on inline content.
 type InlineContent interface{}
 

@@ -164,6 +164,160 @@ func (n *node) CompileDocument(docID string) (string, error) {
 	return finalJSON, nil
 }
 
+func (n *node) CompileDocumentNew(docID string) (string, error) {
+	document := make([]types.BlockFactory, 0)
+
+	// Step 1: Populate document blocks in order
+	blockChangeOperations := n.GetDocumentOps(docID)[docID]
+
+	for _, blockChangeOp := range blockChangeOperations {
+		// Determine the type of operation
+		switch blockChangeOp.Type {
+		case types.CRDTAddBlockType:
+			addBlockOp, ok := blockChangeOp.Operation.(types.CRDTAddBlock)
+			if !ok {
+				return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
+			}
+
+			// Add the block to the document in the correct spot
+			for i, _ := range document {
+				if checkAddBlockAtPosition(document, i, addBlockOp) {
+					break
+				}
+			}
+
+			break
+		case types.CRDTRemoveBlockType:
+			removeBlockOp, ok := blockChangeOp.Operation.(types.CRDTRemoveBlock)
+			if !ok {
+				return "", xerrors.Errorf("failed to cast operation to CRDTRemoveBlock")
+			}
+
+			// Remove the block from the document
+			for i, _ := range document {
+				if checkRemoveBlockAtPosition(document, i, removeBlockOp) {
+					break
+				}
+			}
+
+			break
+		case types.CRDTUpdateBlockType:
+			updateBlockOp, ok := blockChangeOp.Operation.(types.CRDTUpdateBlock)
+			if !ok {
+				return "", xerrors.Errorf("failed to cast operation to CRDTUpdateBlock")
+			}
+
+			updated := false
+
+			// Update the block in the document
+			for i, _ := range document {
+				updated = checkUpdateBlockAtPosition(document, i, updateBlockOp, updated)
+			}
+
+			break
+		}
+	}
+
+	// Step 2: Populate block content for each block in the document
+	finalDocument := make([]types.BlockType, 0)
+
+	// Step 3: Serialize the document
+	// Now that we have the final document, we can convert it to a JSON string
+	finalJSON := "[ "
+
+	// Serialize the document
+	for _, block := range finalDocument {
+		finalJSON += types.SerializeBlock(block) + ","
+	}
+
+	finalJSON = finalJSON[:len(finalJSON)-1] // Remove the additional ","
+	finalJSON += "]"
+
+	return finalJSON, nil
+}
+
+// checkAddBlockAtPosition checks if the addBlockOp should be added to the document at the current index
+// Returns true if the block was added, false otherwise
+func checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockOp types.CRDTAddBlock) bool {
+	added := false
+
+	// Check if the block is going after the current block
+	if document[index].ID == addBlockOp.AfterBlock {
+		newBlock := types.BlockFactory{
+			ID:       addBlockOp.OpID,
+			BlockType: addBlockOp.BlockType,
+			Props:    addBlockOp.Props,
+			Children: nil,
+		}
+		document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
+		added = true
+	}
+
+	// Check if the block is a child block
+	if addBlockOp.ParentBlock == document[index].ID {
+		// Check if the block has no children yet
+		if document[index].Children == nil {
+			document[index].Children = make([]types.BlockFactory, 0)
+
+			newBlock := types.BlockFactory{
+				ID:       addBlockOp.OpID,
+				BlockType: addBlockOp.BlockType,
+				Props:    addBlockOp.Props,
+				Children: nil,
+			}
+	
+			document[index].Children = append(document[index].Children, newBlock)
+			added = true
+		} else {
+			// Recursively check the children blocks
+			return checkAddBlockAtPosition(document[index].Children, index, addBlockOp)
+		}
+	}
+
+	return added
+}
+
+// checkRemoveBlockAtPosition checks if the removeBlockOp should be removed from the document at the current index
+// Returns true if the block was removed, false otherwise
+func checkRemoveBlockAtPosition(document []types.BlockFactory, index int, removeBlockOp types.CRDTRemoveBlock) bool {
+	removed := false
+
+	// Check if the block is going after the current block
+	if document[index].ID == removeBlockOp.RemovedBlock {
+		document[index].Deleted = true
+		removed = true
+	}
+
+	// Check if the block is a child block
+	if document[index].Children != nil {
+		for i := range document[index].Children {
+			return checkRemoveBlockAtPosition(document[index].Children, i, removeBlockOp)
+		}
+	}
+
+	return removed
+}
+
+func checkUpdateBlockAtPosition(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock, updated bool) bool {
+	// Check if the block is going after the current block
+	if document[index].ID == updateBlockOp.UpdatedBlock {
+		document[index].BlockType = updateBlockOp.BlockType
+		document[index].Props = updateBlockOp.Props
+		updated = true
+	}
+
+	// Check if the block is a child block
+	if document[index].Children != nil {
+		for i := range document[index].Children {
+			return checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated)
+		}
+	}
+
+	return updated
+}
+			
+
+
 func (n *node) updateBlockProps(blockProps types.DefaultBlockProps, updatedProps types.DefaultBlockProps) types.DefaultBlockProps {
 
 	if updatedProps.Level != 0 {
