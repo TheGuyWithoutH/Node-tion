@@ -518,19 +518,36 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 	}
 
 	// Check if the block is a child block
-	if addBlockOp.ParentBlock == document[index].ID {
-		// Check if the block has no children yet
-		if document[index].Children == nil {
-			document[index].Children = make([]types.BlockFactory, 0)
-
+	if addBlockOp.ParentBlock != "" {
+		if addBlockOp.ParentBlock == document[index].ID {
+			// Check if the block has no children yet
+			if document[index].Children == nil {
+				document[index].Children = make([]types.BlockFactory, 0)
+	
+				// Check where to add the block in the children
+				for i := range document[index].Children {
+					return checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+				}
+			}
+		} else {
+			// Check if the block is a child block of a child block
+			if document[index].Children == nil {
+				// Check if the block is a child block
+				for i := range document[index].Children {
+					return checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+				}
+			}
+		}
+	} else {
+		// Check if the block is going after the current block
+		if addBlockOp.AfterBlock == "" || document[index].ID == addBlockOp.AfterBlock {
 			newBlock := types.BlockFactory{
 				ID:        addBlockOp.OpID,
 				BlockType: addBlockOp.BlockType,
 				Props:     addBlockOp.Props,
 				Children:  nil,
 			}
-
-			document[index].Children = append(document[index].Children, newBlock)
+			document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
 			added = true
 		} else {
 			// Recursively check the children blocks
