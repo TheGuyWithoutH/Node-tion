@@ -557,6 +557,7 @@ func (n *node) updateOperationAttributes(operation *types.CRDTOperation) error {
 	// Update blockID reference
 	blockID, err := n.updateBlockReferences(&operation.BlockID)
 	if err != nil {
+		n.logCRDT.Debug().Msgf("failed to update block references: %s", operation.BlockID)
 		return fmt.Errorf("failed to update block references: %w", err)
 	}
 	operation.BlockID = blockID

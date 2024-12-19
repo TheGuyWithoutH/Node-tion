@@ -25,9 +25,9 @@ func Test_SaveTransactions_SingleOperation(t *testing.T) {
 
 	crdtOp := types.CRDTOperation{
 		Origin:      node.GetAddr(),
-		OperationID: 0, // Will be updated in SaveTransactions
+		OperationID: 1, // Will be updated in SaveTransactions
 		DocumentID:  "doc1",
-		BlockID:     "block1",
+		BlockID:     "1@temp",
 		Operation:   types.CRDTAddBlock{},
 	}
 
@@ -44,7 +44,7 @@ func Test_SaveTransactions_SingleOperation(t *testing.T) {
 	require.Equal(t, uint64(1), node.GetCRDTState("doc1"))
 
 	// ValIDate the operation ID is updated and saved
-	ops := node.GetBlockOps("doc1", "block1")
+	ops := node.GetBlockOps("doc1", "1@"+node.GetAddr())
 	require.Len(t, ops, 1)
 	require.Equal(t, uint64(1), ops[0].OperationID)
 
@@ -67,16 +67,16 @@ func Test_SaveTransactions_MultipleOperations(t *testing.T) {
 	ops := []types.CRDTOperation{
 		{
 			Origin:      node.GetAddr(),
-			OperationID: 0,
+			OperationID: 1,
 			DocumentID:  "doc1",
-			BlockID:     "block1",
+			BlockID:     "1@temp",
 			Operation:   types.CRDTAddBlock{},
 		},
 		{
 			Origin:      node.GetAddr(),
-			OperationID: 0,
+			OperationID: 2,
 			DocumentID:  "doc1",
-			BlockID:     "block2",
+			BlockID:     "2@temp",
 			Operation:   types.CRDTInsertChar{},
 		},
 	}
@@ -94,10 +94,10 @@ func Test_SaveTransactions_MultipleOperations(t *testing.T) {
 	require.Equal(t, uint64(2), node.GetCRDTState("doc1"))
 
 	// ValIDate operations are updated and saved
-	require.Len(t, node.GetBlockOps("doc1", "block1"), 1)
-	require.Len(t, node.GetBlockOps("doc1", "block2"), 1)
-	require.Equal(t, uint64(1), node.GetBlockOps("doc1", "block1")[0].OperationID)
-	require.Equal(t, uint64(2), node.GetBlockOps("doc1", "block2")[0].OperationID)
+	require.Len(t, node.GetBlockOps("doc1", "1@"+node.GetAddr()), 1)
+	require.Len(t, node.GetBlockOps("doc1", "2@"+node.GetAddr()), 1)
+	require.Equal(t, uint64(1), node.GetBlockOps("doc1", "1@"+node.GetAddr())[0].OperationID)
+	require.Equal(t, uint64(2), node.GetBlockOps("doc1", "2@"+node.GetAddr())[0].OperationID)
 
 	// ValIDate the operations are broadcasted
 	require.Len(t, node.GetOuts(), 1)
@@ -122,7 +122,7 @@ func Test_SaveTransactions_TempIDMappingWithEditor(t *testing.T) {
 			Origin:      node.GetAddr(),
 			OperationID: 42, // Temporary ID
 			DocumentID:  "doc1",
-			BlockID:     "block1",
+			BlockID:     "42@temp",
 			Operation: types.CRDTAddBlock{
 				AfterBlock: "43@temp",
 			},
@@ -131,7 +131,7 @@ func Test_SaveTransactions_TempIDMappingWithEditor(t *testing.T) {
 			Origin:      node.GetAddr(),
 			OperationID: 43, // Another Temporary ID
 			DocumentID:  "doc1",
-			BlockID:     "block2",
+			BlockID:     "43@temp",
 			Operation: types.CRDTInsertChar{
 				AfterID: "42@temp",
 			},
@@ -149,10 +149,12 @@ func Test_SaveTransactions_TempIDMappingWithEditor(t *testing.T) {
 
 	editor := node.GetEditor()
 
-	require.Equal(t, editor["doc1"]["block1"][0].OperationID, uint64(1))
-	require.Equal(t, editor["doc1"]["block2"][0].OperationID, uint64(2))
+	require.Equal(t, editor["doc1"]["1@"+node.GetAddr()][0].OperationID, uint64(1))
+	require.Equal(t, editor["doc1"]["2@"+node.GetAddr()][0].OperationID, uint64(2))
 
-	bs, _ := json.Marshal(editor["doc1"]["block1"][0].Operation)
+	println("checkpoint")
+
+	bs, _ := json.Marshal(editor["doc1"]["1@"+node.GetAddr()][0].Operation)
 
 	addOp := types.CRDTAddBlock{}
 
