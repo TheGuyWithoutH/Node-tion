@@ -83,7 +83,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 					startFound = true
 				}
 				if startFound {
-					textStyles[char.OpID] = n.addMark(textStyles[char.OpID], addMark)
+					textStyles[char.OpID] = n.addMark2TextStyle(textStyles[char.OpID], addMark)
 				}
 				if char.OpID == addMark.End.OpID {
 					break
@@ -103,7 +103,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 					startFound = true
 				}
 				if startFound {
-					textStyles[char.OpID] = n.removeMark(textStyles[char.OpID], deleteMark.MarkType)
+					textStyles[char.OpID] = n.removeMark2TextStyle(textStyles[char.OpID], deleteMark.MarkType)
 				}
 				if char.OpID == deleteMark.End.OpID {
 					break
@@ -164,6 +164,175 @@ func (n *node) CompileDocument(docID string) (string, error) {
 	return finalJSON, nil
 }
 
+func (n *node) getIDIndex(ID string, charIDs []string) int {
+	pos := -1
+	for i, charID := range charIDs {
+		if charID == ID {
+			pos = i
+			break
+		}
+	}
+	return pos
+}
+
+// Map is by reference TODO: Check if this is correct
+func (n *node) applyAddMark(textStyles map[string]types.TextStyle, charIDs []string, startID, endID string, op types.CRDTAddMark) {
+
+	startFound := false
+	for _, charID := range charIDs {
+		if charID == startID {
+			startFound = true
+		}
+		if startFound {
+			textStyles[charID] = n.addMark2TextStyle(textStyles[charID], op)
+		}
+		if charID == endID {
+			break
+		}
+	}
+}
+
+func (n *node) applyRemoveMark(textStyles map[string]types.TextStyle, charIDs []string, startID, endID string, op types.CRDTRemoveMark) {
+
+	startFound := false
+	for _, charID := range charIDs {
+		if charID == startID {
+			startFound = true
+		}
+		if startFound {
+			textStyles[charID] = n.removeMark2TextStyle(textStyles[charID], op.MarkType)
+		}
+		if charID == endID {
+			break
+		}
+	}
+}
+
+func (n *node) createBlockContent(ops []types.CRDTOperation) []types.StyledText {
+
+	var text string
+	var textStyles map[string]types.TextStyle // opID -> textStyle
+	var charIDs []string
+	var removedIDs []string
+
+	for _, op := range ops {
+		switch op.Type {
+		case types.CRDTInsertCharType:
+			insertOp, ok := op.Operation.(types.CRDTInsertChar)
+			if !ok {
+				n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar")
+			}
+			// Insert the character into the text after the AfterID
+			afterID := insertOp.AfterID
+			lastAfterID := charIDs[len(charIDs)-1]
+			if afterID != lastAfterID {
+				// Get the position index of afterID in charIDs
+				pos := n.getIDIndex(afterID, charIDs)
+				if pos == -1 {
+					n.logCRDT.Error().Msgf("failed to find afterID in charIDs")
+				}
+				// Insert the character at the position
+				charIDs = append(charIDs[:pos+1], append([]string{insertOp.OpID}, charIDs[pos+1:]...)...)
+				text = text[:pos+1] + insertOp.Character + text[pos+1:]
+			}
+			// Add the character to the end of the text
+			text += insertOp.Character
+			charIDs = append(charIDs, insertOp.OpID)
+
+		case types.CRDTDeleteCharType:
+			deleteOp, ok := op.Operation.(types.CRDTDeleteChar)
+			if !ok {
+				n.logCRDT.Error().Msgf("failed to cast operation to CRDTDeleteChar")
+			}
+			removedIDs = append(removedIDs, deleteOp.RemovedID)
+
+		case types.CRDTAddMarkType:
+			op, ok := op.Operation.(types.CRDTAddMark)
+			if !ok {
+				n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddMark")
+			}
+			startID := op.Start.OpID
+			endID := op.End.OpID
+			n.applyAddMark(textStyles, charIDs, startID, endID, op)
+
+		case types.CRDTRemoveMarkType:
+			op, ok := op.Operation.(types.CRDTRemoveMark)
+			if !ok {
+				n.logCRDT.Error().Msgf("failed to cast operation to CRDTRemoveMark")
+			}
+			startID := op.Start.OpID
+			endID := op.End.OpID
+			n.applyRemoveMark(textStyles, charIDs, startID, endID, op)
+		}
+	}
+
+	// Removes the characters that are marked for deletion
+	for _, removedID := range removedIDs {
+		pos := n.getIDIndex(removedID, charIDs)
+		if pos == -1 {
+			n.logCRDT.Error().Msgf("failed to find removedID in charIDs")
+		}
+		charIDs = append(charIDs[:pos], charIDs[pos+1:]...)
+		text = text[:pos] + text[pos+1:]
+	}
+
+	return nil
+}
+
+func (n *node) generateInlineContent(text string, textStyles map[string]types.TextStyle, charIDs []string) []types.InlineContent {
+	var styledTexts []types.StyledText
+	// If the style is the same, we can group the characters together
+	var previousStyles types.TextStyle
+	var tmpStringContent string
+	var tmpCharIds []string
+
+	for _, charID := range charIDs {
+		if !compareTextStyle(textStyles[charID], previousStyles) {
+			// If the style is different, we need to create a new InlineContent
+			if len(tmpStringContent) > 0 {
+				styledTexts = append(styledTexts, types.StyledText{
+					CharIDs: tmpCharIds,
+					Text:    tmpStringContent,
+					Styles:  previousStyles,
+				})
+				// Reset the stringContent
+				tmpStringContent = ""
+				tmpCharIds = nil
+			}
+		}
+		tmpStringContent += string(text[n.getIDIndex(charID, charIDs)])
+		tmpCharIds = append(tmpCharIds, charID)
+		previousStyles = textStyles[charID]
+	}
+
+	// We need to add the last block of text
+	if len(tmpStringContent) > 0 {
+		styledTexts = append(styledTexts, types.StyledText{
+			CharIDs: tmpCharIds,
+			Text:    tmpStringContent,
+			Styles:  previousStyles,
+		})
+	}
+
+	var inlineContents = make([]types.InlineContent, len(styledTexts))
+	for i, styledText := range styledTexts {
+		inlineContents[i] = &styledText
+	}
+
+	return inlineContents
+}
+
+// TODO : Add it as a function of the TextStyle struct
+func compareTextStyle(a types.TextStyle, b types.TextStyle) bool {
+	if a.Bold != b.Bold || a.Italic != b.Italic || a.Underline != b.Underline ||
+		a.Strikethrough != b.Strikethrough || a.TextColor != b.TextColor ||
+		a.BackgroundColor != b.BackgroundColor {
+		return false
+	}
+
+	return true
+}
+
 func (n *node) CompileDocumentNew(docID string) (string, error) {
 	document := make([]types.BlockFactory, 0)
 
@@ -178,7 +347,7 @@ func (n *node) CompileDocumentNew(docID string) (string, error) {
 			if !ok {
 				return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
 			}
-			
+
 			// Add the block to the document in the correct spot
 			added := false
 			for i := range document {
@@ -264,7 +433,7 @@ func checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockO
 				Props:    addBlockOp.Props,
 				Children: nil,
 			}
-	
+
 			document[index].Children = append(document[index].Children, newBlock)
 			added = true
 		} else {
@@ -328,7 +497,7 @@ func checkUpdateBlockAtPosition(document []types.BlockFactory, index int, update
 
 	return updated, updatedBlock, document
 }
-			
+
 
 
 func (n *node) updateBlockProps(blockProps types.DefaultBlockProps, updatedProps types.DefaultBlockProps) types.DefaultBlockProps {
@@ -365,7 +534,7 @@ func (n *node) updateBlock(blockOp types.CRDTAddBlock, updatedBlock *types.CRDTU
 	return blockOp
 }
 
-func (n *node) addMark(textStyle types.TextStyle, toAdd types.CRDTAddMark) types.TextStyle {
+func (n *node) addMark2TextStyle(textStyle types.TextStyle, toAdd types.CRDTAddMark) types.TextStyle {
 
 	switch toAdd.MarkType {
 	case types.Bold:
@@ -385,7 +554,7 @@ func (n *node) addMark(textStyle types.TextStyle, toAdd types.CRDTAddMark) types
 	return textStyle
 }
 
-func (n *node) removeMark(textStyle types.TextStyle, toRemove string) types.TextStyle {
+func (n *node) removeMark2TextStyle(textStyle types.TextStyle, toRemove string) types.TextStyle {
 	switch toRemove {
 	case types.Bold:
 		textStyle.Bold = false
@@ -438,26 +607,23 @@ func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
 			n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddBlock")
 		}
 
-		if addBlockOp1.AfterBlock == "" {
-			return true
-		}
-		if addBlockOp2.AfterBlock == "" {
-			return false
-		}
-
 		split1 := strings.Split(addBlockOp1.AfterBlock, "@")
 		afterOp1, err := strconv.Atoi(split1[0])
+		afterAddr1 := split1[1]
 		if err != nil {
 			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
+			afterOp1 = 0
+			afterAddr1 = ""
 		}
-		afterAddr1 := split1[1]
 
 		split2 := strings.Split(addBlockOp2.AfterBlock, "@")
 		afterOp2, err := strconv.Atoi(split2[0])
+		afterAddr2 := split2[1]
 		if err != nil {
 			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
+			afterOp2 = 0
+			afterAddr2 = ""
 		}
-		afterAddr2 := split2[1]
 
 		if afterOp1 == afterOp2 { // AftersOpIDs are the same
 			if afterAddr1 == afterAddr2 { // Addresses of the afterID are also the same
@@ -468,10 +634,18 @@ func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
 				return ops[i].OperationID > ops[j].OperationID
 			}
 		}
+
+		if addBlockOp1.AfterBlock == "" {
+			return true
+		}
+		if addBlockOp2.AfterBlock == "" {
+			return false
+		}
+
 		return afterOp1 < afterOp2
 	})
 
-	// Turn the operations into a slice of blockIDs
+	// Turn the operations into a slice of blockIDs and CRDTADDBlock
 	var blockIDs []string
 	for _, op := range ops {
 		blockID, err := ReconstructOpID(op.OperationID, op.Origin)
@@ -479,6 +653,12 @@ func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
 			n.logCRDT.Error().Msgf("failed to reconstruct opID: %s", err)
 		}
 		blockIDs = append(blockIDs, blockID)
+
+		addBlockOp, ok := op.Operation.(types.CRDTAddBlock)
+		if !ok {
+			n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddBlock")
+		}
+		n.logCRDT.Debug().Msgf("blockID %s : AfterBlock %s", blockID, addBlockOp.AfterBlock)
 	}
 
 	return blockIDs

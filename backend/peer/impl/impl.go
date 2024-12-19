@@ -23,8 +23,8 @@ var logIO = zerolog.ConsoleWriter{
 // NewPeer creates a new peer. You can change the content and location of this
 // function, but you MUST NOT change its signature and package location.
 func NewPeer(conf peer.Configuration) peer.Peer {
-	logger := newLogger(logIO, zerolog.DebugLevel)
-	loggerPAXOS := newLogger(logIO, zerolog.DebugLevel)
+	logger := newLogger(logIO, zerolog.ErrorLevel)
+	loggerPAXOS := newLogger(logIO, zerolog.NoLevel)
 	loggerCRDT := newLogger(logIO, zerolog.DebugLevel)
 
 	routingTable := newRoutingTable()
