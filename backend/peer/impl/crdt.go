@@ -485,6 +485,22 @@ func (n *node) GetDocumentList() ([]string, error) {
 	return docList, nil
 }
 
+// AddNewDocument adds a new document to the editor.
+func (n *node) AddNewDocument(docID string) error {
+	n.editor.mu.Lock()
+	defer n.editor.mu.Unlock()
+
+	editor := n.editor.ed
+	if _, ok := editor[docID]; ok {
+		return fmt.Errorf("document already exists")
+	}
+
+	// Add the document to the editor
+	n.editor.ed[docID] = make(map[string][]types.CRDTOperation)
+
+	return nil
+}
+
 func (n *node) SaveTransactions(transactions types.CRDTOperationsMessage) error {
 	operations := transactions.Operations
 	n.logCRDT.Debug().Msgf("SaveTransactions: %d operations", len(operations))
