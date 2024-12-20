@@ -765,6 +765,9 @@ func (n *node) GetBlockOps(docID, blockID string) []types.CRDTOperation {
 
 	block := make([]types.CRDTOperation, len(n.editor.ed[docID][blockID]))
 	copy(block, n.editor.ed[docID][blockID])
+	n.logCRDT.Debug().Msgf("GetBlockOps: editor doc %s, blockID %s: %d operations", docID, blockID, len(n.editor.ed[docID][blockID]))
+
+	n.logCRDT.Debug().Msgf("GetBlockOps: %d operations", len(block))
 
 	return block
 }

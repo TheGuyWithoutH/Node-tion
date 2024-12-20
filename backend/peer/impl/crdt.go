@@ -211,11 +211,18 @@ func (n *node) applyRemoveMark(textStyles map[string]types.TextStyle, charIDs []
 func (n *node) createBlockContent(ops []types.CRDTOperation) []types.InlineContent {
 
 	var text string
-	var textStyles map[string]types.TextStyle // opID -> textStyle
+	textStyles := make(map[string]types.TextStyle) // opID -> textStyle
 	var charIDs []string
 	var removedIDs []string
 
+	n.logCRDT.Debug().Msgf("ops %v", ops)
+
 	for _, op := range ops {
+		opID, err := ReconstructOpID(op.OperationID, op.Origin)
+		if err != nil {
+			n.logCRDT.Error().Msgf("failed to convert operationID to string: %v", err)
+		}
+		n.logCRDT.Debug().Msgf("Operation %v", op.Type)
 		switch op.Type {
 		case types.CRDTInsertCharType:
 			insertOp, ok := op.Operation.(types.CRDTInsertChar)
@@ -224,7 +231,11 @@ func (n *node) createBlockContent(ops []types.CRDTOperation) []types.InlineConte
 			}
 			// Insert the character into the text after the AfterID
 			afterID := insertOp.AfterID
-			lastAfterID := charIDs[len(charIDs)-1]
+
+			var lastAfterID string
+			if len(charIDs) > 0 {
+				lastAfterID = charIDs[len(charIDs)-1]
+			}
 			if afterID != lastAfterID {
 				// Get the position index of afterID in charIDs
 				pos := n.getIDIndex(afterID, charIDs)
@@ -232,12 +243,16 @@ func (n *node) createBlockContent(ops []types.CRDTOperation) []types.InlineConte
 					n.logCRDT.Error().Msgf("failed to find afterID in charIDs")
 				}
 				// Insert the character at the position
-				charIDs = append(charIDs[:pos+1], append([]string{insertOp.OpID}, charIDs[pos+1:]...)...)
+				charIDs = append(charIDs[:pos+1], append([]string{opID}, charIDs[pos+1:]...)...)
 				text = text[:pos+1] + insertOp.Character + text[pos+1:]
+			} else {
+				// Add the character to the end of the text
+				n.logCRDT.Debug().Msgf("Inserting character %s", insertOp.Character)
+				text += insertOp.Character
+				charIDs = append(charIDs, opID)
 			}
-			// Add the character to the end of the text
-			text += insertOp.Character
-			charIDs = append(charIDs, insertOp.OpID)
+			n.logCRDT.Debug().Msgf("charIDs %v", charIDs)
+			n.logCRDT.Debug().Msgf("text %s", text)
 
 		case types.CRDTDeleteCharType:
 			deleteOp, ok := op.Operation.(types.CRDTDeleteChar)
@@ -286,6 +301,10 @@ func (n *node) generateInlineContent(text string, textStyles map[string]types.Te
 	var tmpStringContent string
 	var tmpCharIds []string
 
+	n.logCRDT.Debug().Msgf("charIDs %v", charIDs)
+	n.logCRDT.Debug().Msgf("textStyles %v", textStyles)
+	n.logCRDT.Debug().Msgf("text %v", text)
+
 	for _, charID := range charIDs {
 		if !compareTextStyle(textStyles[charID], previousStyles) {
 			// If the style is different, we need to create a new InlineContent
@@ -315,7 +334,9 @@ func (n *node) generateInlineContent(text string, textStyles map[string]types.Te
 	}
 
 	var inlineContents = make([]types.InlineContent, len(styledTexts))
+	n.logCRDT.Debug().Msgf("Length styledTexts %v", styledTexts)
 	for i, styledText := range styledTexts {
+		n.logCRDT.Debug().Msgf("styledText %v", styledText)
 		inlineContents[i] = &styledText
 	}
 
@@ -354,10 +375,10 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			if len(document) == 0 {
 				// If the document is empty, add the block to the beginning
 				newBlock := types.BlockFactory{
-					ID:       addBlockOp.OpID,
+					ID:        addBlockOp.OpID,
 					BlockType: addBlockOp.BlockType,
-					Props:    addBlockOp.Props,
-					Children: nil,
+					Props:     addBlockOp.Props,
+					Children:  nil,
 				}
 				document = append(document, newBlock)
 			} else {
@@ -404,9 +425,14 @@ func (n *node) CompileDocument(docID string) (string, error) {
 	n.logCRDT.Debug().Msgf("document %s being compiled, factory: %v", docID, document)
 
 	for _, block := range document {
+		// Skip deleted blocks
+		if block.Deleted {
+			continue
+		}
 		n.logCRDT.Debug().Msgf("block %s being compiled, factory: %v", block.ID, block)
 		// Create the block
 		blockOperations := n.GetBlockOps(docID, block.ID)
+		n.logCRDT.Debug().Msgf("block %s being compiled, ops: %v", block.ID, blockOperations)
 		newBlock := n.createBlock(docID, block, blockOperations)
 		n.logCRDT.Debug().Msgf("block %s added to finalDoc", block.ID)
 		finalDocument = append(finalDocument, newBlock)
@@ -541,7 +567,7 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 			}
 		}
 	}
-	
+
 	// Check if the block is going at the start of the document
 	if !added && (addBlockOp.AfterBlock == "" && addBlockOp.ParentBlock == "") {
 		newBlock := types.BlockFactory{
@@ -553,8 +579,8 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 		document = append([]types.BlockFactory{newBlock}, document...)
 		added = true
 	} else if !added && (document[index].ID == addBlockOp.AfterBlock) {
-			// Check if the block is going after the current block
-			newBlock := types.BlockFactory{
+		// Check if the block is going after the current block
+		newBlock := types.BlockFactory{
 			ID:        addBlockOp.OpID,
 			BlockType: addBlockOp.BlockType,
 			Props:     addBlockOp.Props,
@@ -609,7 +635,7 @@ func (n *node) checkUpdateBlockAtPosition(document []types.BlockFactory, index i
 			// Apply previous children to the updated block and merge the props
 			updatedBlock.Children = document[index].Children
 			updatedBlock.Props = n.updateBlockProps(document[index].Props, updateBlockOp.Props)
-	
+
 			// Delete the old block
 			document = append(document[:index], document[index+1:]...)
 			return updated, updatedBlock, document
@@ -680,11 +706,9 @@ func (n *node) checkUpdateBlockAtPosition(document []types.BlockFactory, index i
 			}
 		}
 	}
-	
+
 	return updated, updatedBlock, document
 }
-
-
 
 func (n *node) updateBlockProps(blockProps types.DefaultBlockProps, updatedProps types.DefaultBlockProps) types.DefaultBlockProps {
 
