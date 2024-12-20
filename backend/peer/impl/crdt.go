@@ -444,19 +444,15 @@ func (n *node) CompileDocument(docID string) (string, error) {
 
 	// Step 2: Populate block content for each block in the document
 	finalDocument := make([]types.BlockType, 0)
-	n.logCRDT.Debug().Msgf("document %s being compiled, factory: %v", docID, document)
 
 	for _, block := range document {
 		// Skip deleted blocks
 		if block.Deleted {
 			continue
 		}
-		n.logCRDT.Debug().Msgf("block %s being compiled, factory: %v", block.ID, block)
 		// Create the block
 		blockOperations := n.GetBlockOps(docID, block.ID)
-		n.logCRDT.Debug().Msgf("block %s being compiled, ops: %v", block.ID, blockOperations)
 		newBlock := n.createBlock(docID, block, blockOperations)
-		n.logCRDT.Debug().Msgf("block %s added to finalDoc", block.ID)
 		finalDocument = append(finalDocument, newBlock)
 	}
 
@@ -517,6 +513,7 @@ func (n *node) createBlock(docID string, block types.BlockFactory, blockOperatio
 		}
 		return newBlock
 	case types.NumberedListBlockType:
+		n.logCRDT.Debug().Msgf("Creating Numbered List Block")
 		newBlock := &types.NumberedListBlock{
 			BlockType: nil,
 			Default:   block.Props,

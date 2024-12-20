@@ -30,8 +30,8 @@ type BlockTypeName string
 const (
 	ParagraphBlockType    BlockTypeName = "paragraph"
 	HeadingBlockType      BlockTypeName = "heading"
-	BulletedListBlockType BlockTypeName = "bulleted_list"
-	NumberedListBlockType BlockTypeName = "numbered_list"
+	BulletedListBlockType BlockTypeName = "bulletListItem"
+	NumberedListBlockType BlockTypeName = "numberedListItem"
 	ImageBlockType        BlockTypeName = "image"
 	TableBlockType        BlockTypeName = "table"
 )
