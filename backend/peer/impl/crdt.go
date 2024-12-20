@@ -365,10 +365,10 @@ func (n *node) CompileDocument(docID string) (string, error) {
 		switch blockChangeOp.Type {
 		case types.CRDTAddBlockType:
 			addBlockOp, ok := blockChangeOp.Operation.(types.CRDTAddBlock)
-			addBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
 			if !ok {
 				return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
 			}
+			addBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
 
 			// Add the block to the document in the correct spot
 			added := false
@@ -391,10 +391,10 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			}
 		case types.CRDTRemoveBlockType:
 			removeBlockOp, ok := blockChangeOp.Operation.(types.CRDTRemoveBlock)
-			removeBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
 			if !ok {
 				return "", xerrors.Errorf("failed to cast operation to CRDTRemoveBlock")
 			}
+			removeBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
 
 			// Remove the block from the document
 			removed := false
@@ -409,23 +409,24 @@ func (n *node) CompileDocument(docID string) (string, error) {
 			if !ok {
 				return "", xerrors.Errorf("failed to cast operation to CRDTUpdateBlock")
 			}
+			updateBlockOp.UpdatedBlock = blockChangeOp.BlockID
 
 			// Find the block to update and remove it for now (as it can change position)
-			updatedBlock := &types.BlockFactory{}
+			oldBlock := &types.BlockFactory{}
 			for i := range document {
-				updatedBlock, document = n.findBlockToUpdateAndRemove(document, i, updateBlockOp)
-				if updatedBlock != nil {
+				oldBlock, document = n.findBlockToUpdateAndRemove(document, i, updateBlockOp)
+				if oldBlock != nil {
 					break
 				}
 			}
 
 			// Update the block properties
-			if updatedBlock != nil {
-				updatedBlock = &types.BlockFactory{
-					ID:       updatedBlock.ID,
+			if oldBlock != nil {
+				updatedBlock := &types.BlockFactory{
+					ID:        oldBlock.ID,
 					BlockType: updateBlockOp.BlockType, // We assume that the block type is always updated
-					Props:    n.updateBlockProps(updatedBlock.Props, updateBlockOp.Props),
-					Children: updatedBlock.Children,
+					Props:     n.updateBlockProps(oldBlock.Props, updateBlockOp.Props),
+					Children:  oldBlock.Children,
 				}
 
 				added := false
@@ -652,7 +653,9 @@ func (n *node) findBlockToUpdateAndRemove(document []types.BlockFactory, index i
 
 	// Check if the block is going after the current block
 	if document[index].ID == updateBlockOp.UpdatedBlock {
-		updated = &document[index]
+		// Copy the block to be updated to avoid the reference being updated
+		oldBlock := document[index]
+		updated = &oldBlock
 		document = append(document[:index], document[index+1:]...)
 	}
 
@@ -695,13 +698,13 @@ func (n *node) checkAddBackBlockAtPosition(document []types.BlockFactory, index 
 			}
 		}
 	}
-	
+
 	// Check if the block is going at the start of the document
 	if !added && (updateBlockOp.AfterBlock == "" && updateBlockOp.ParentBlock == "") {
 		document = append([]types.BlockFactory{updatedBlock}, document...)
 		added = true
 	} else if !added && (document[index].ID == updateBlockOp.AfterBlock) {
-			// Check if the block is going after the current block
+		// Check if the block is going after the current block
 		document = append(document[:index+1], append([]types.BlockFactory{updatedBlock}, document[index+1:]...)...)
 		added = true
 	} else if !added {
@@ -718,7 +721,6 @@ func (n *node) checkAddBackBlockAtPosition(document []types.BlockFactory, index 
 
 	return added, document
 }
-
 
 func (n *node) updateBlockProps(blockProps types.DefaultBlockProps, updatedProps types.DefaultBlockProps) types.DefaultBlockProps {
 
