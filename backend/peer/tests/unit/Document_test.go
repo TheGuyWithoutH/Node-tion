@@ -25,7 +25,7 @@ func CreateInsertsFromString(content string, addr string, blockID string, insert
 				OperationID: uint64(i + insertStart),
 				DocumentID:  "doc1",
 				BlockID:     blockID,
-				Operation:   tests.CreateInsertOp("", string(char)),
+				Operation:   CreateInsertOp("", string(char)),
 			}
 		} else {
 			ops[i] = types.CRDTOperation{
@@ -34,11 +34,18 @@ func CreateInsertsFromString(content string, addr string, blockID string, insert
 				OperationID: uint64(i + insertStart),
 				DocumentID:  "doc1",
 				BlockID:     blockID,
-				Operation:   tests.CreateInsertOp(strconv.Itoa(i+insertStart-1)+"@"+addr, string(char)),
+				Operation:   CreateInsertOp(strconv.Itoa(i+insertStart-1)+"@"+addr, string(char)),
 			}
 		}
 	}
 	return ops
+}
+
+func CreateInsertOp(afterID string, content string) types.CRDTInsertChar {
+	return types.CRDTInsertChar{
+		AfterID:   afterID,
+		Character: content,
+	}
 }
 
 // ----- Tests -----
@@ -49,6 +56,7 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
 	defer peer.Stop()
 
+	docID := "doc1"
 	block1ID := "1" + "@temp"
 	addBlock1 := types.CRDTAddBlock{
 		AfterBlock:  "",
@@ -67,18 +75,18 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 1,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   addBlock1,
 	}})
 	require.NoError(t, err)
 	// Add some text to the block
-	inserts := CreateInsertsFromString("Hello!", "temp", block1ID, 2)
+	inserts := tests.CreateInsertsFromString("Hello!", "temp", docID, block1ID, 2)
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
 	// Compile the document
-	doc, err := peer.CompileDocument("doc1")
+	doc, err := peer.CompileDocument(docID)
 	require.NoError(t, err)
 	expected := "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\": \"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{}}],\"children\":[]}]"
 
@@ -105,7 +113,7 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 8,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block2ID,
 		Operation:   addBlock2,
 	},
@@ -113,7 +121,7 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add some text to the block
-	inserts = CreateInsertsFromString("World!", "temp", block2ID, 9)
+	inserts = tests.CreateInsertsFromString("World!", "temp", docID, block2ID, 9)
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
@@ -135,7 +143,7 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 		Type:        types.CRDTAddMarkType,
 		Origin:      "temp",
 		OperationID: 15,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   boldMark,
 	},
@@ -144,7 +152,7 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 	require.NoError(t, err)
 
 	// Compile the document
-	doc, err = peer.CompileDocument("doc1")
+	doc, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
 
 	expected = "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{\"bold\":true}}],\"children\":[]},{\"id\":\"8@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\",\"level\":1},\"content\":[{\"type\":\"text\",\"charIds\":[\"9@temp\",\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
@@ -170,18 +178,18 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 16,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block3ID,
 		Operation:   addBlock3,
 	}})
 	require.NoError(t, err)
 
 	// Add some text to the block
-	inserts = CreateInsertsFromString("Block3", "temp", block3ID, 17) // last opId is 22
+	inserts = tests.CreateInsertsFromString("Block3", "temp", docID, block3ID, 17) // last opId is 22
 	err = peer.UpdateEditor(inserts)
 
 	// Compile the document
-	doc, err = peer.CompileDocument("doc1")
+	doc, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
 
 	expected = "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{\"bold\":true}}],\"children\":[]},{\"id\":\"8@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\",\"level\":1},\"content\":[{\"type\":\"text\",\"charIds\":[\"9@temp\",\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]},{\"id\":\"16@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"17@temp\",\"18@temp\",\"19@temp\",\"20@temp\",\"21@temp\",\"22@temp\"],\"text\":\"Block3\",\"styles\":{}}],\"children\":[]}]"
@@ -193,6 +201,7 @@ func Test_Document_Compilation_1Peer_MultipleStyles(t *testing.T) {
 	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
 	defer peer.Stop()
 
+	docID := "doc1"
 	block1ID := "1" + "@temp"
 	addBlock1 := types.CRDTAddBlock{
 		AfterBlock:  "",
@@ -211,13 +220,13 @@ func Test_Document_Compilation_1Peer_MultipleStyles(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 1,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   addBlock1,
 	}})
 	require.NoError(t, err)
 	// Add some text to the block
-	inserts := CreateInsertsFromString("Hello World!", "temp", block1ID, 2) // last opId is 13
+	inserts := tests.CreateInsertsFromString("Hello World!", "temp", docID, block1ID, 2) // last opId is 13
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
@@ -241,7 +250,7 @@ func Test_Document_Compilation_1Peer_MultipleStyles(t *testing.T) {
 		Type:        types.CRDTAddMarkType,
 		Origin:      "temp",
 		OperationID: 14,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   boldMark,
 	}})
@@ -265,14 +274,14 @@ func Test_Document_Compilation_1Peer_MultipleStyles(t *testing.T) {
 		Type:        types.CRDTAddMarkType,
 		Origin:      "temp",
 		OperationID: 15,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   italicMark,
 	}})
 	require.NoError(t, err)
 
 	// Generate the document
-	doc, err := peer.CompileDocument("doc1")
+	doc, err := peer.CompileDocument(docID)
 	require.NoError(t, err)
 
 	expected := "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\"],\"text\":\"Hel\",\"styles\":{\"bold\":true}},{\"type\":\"text\",\"charIds\":[\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"lo \",\"styles\":{\"bold\":true,\"italic\":true}},{\"type\":\"text\",\"charIds\":[\"8@temp\",\"9@temp\",\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\"],\"text\":\"World!\",\"styles\":{\"italic\":true}}],\"children\":[]}]"
@@ -286,6 +295,7 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 
 	println("-----------------TEST 1 STARTED - Adding parent block------------------")
 
+	docID := "doc1"
 	block1ID := "1@temp"
 	addBlock1 := types.CRDTAddBlock{
 		AfterBlock:  "",
@@ -305,13 +315,13 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 1,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   addBlock1,
 	}})
 	require.NoError(t, err)
 	// Add some text to the block
-	inserts := CreateInsertsFromString("H1", "temp", block1ID, 2) // last opId is 13
+	inserts := tests.CreateInsertsFromString("H1", "temp", docID, block1ID, 2) // last opId is 13
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
@@ -333,19 +343,19 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 4,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block2ID,
 		Operation:   addBlock2,
 	}})
 	require.NoError(t, err)
 
 	// Add some text to the child block
-	inserts = CreateInsertsFromString("Child", "temp", block2ID, 5) // last opId is 9
+	inserts = tests.CreateInsertsFromString("Child", "temp", docID, block2ID, 5) // last opId is 9
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
 	// Generate the document
-	doc, err := peer.CompileDocument("doc1")
+	doc, err := peer.CompileDocument(docID)
 	require.NoError(t, err)
 
 	print(doc)
@@ -373,19 +383,19 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 10,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block3ID,
 		Operation:   addBlock3,
 	}})
 	require.NoError(t, err)
 
 	// Add some text to the child block
-	inserts = CreateInsertsFromString("Child2", "temp", block3ID, 11) // last opId is 16
+	inserts = tests.CreateInsertsFromString("Child2", "temp", docID, block3ID, 11) // last opId is 16
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
 	// Generate the document
-	doc, err = peer.CompileDocument("doc1")
+	doc, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
 	print(doc)
 
@@ -400,6 +410,7 @@ func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
 
 	println("-----------------TEST 1 STARTED - Adding unordered inserts------------------")
 
+	docID := "doc1"
 	block1ID := "1" + "@temp"
 	addBlock1 := types.CRDTAddBlock{
 		AfterBlock:  "",
@@ -418,14 +429,14 @@ func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 1,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   addBlock1,
 	}})
 	require.NoError(t, err)
 
 	// Add some text to the block
-	inserts := CreateInsertsFromString("ac", "temp", block1ID, 2) // last opId is 3
+	inserts := tests.CreateInsertsFromString("ac", "temp", docID, block1ID, 2) // last opId is 3
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
@@ -434,7 +445,7 @@ func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
 		Type:        types.CRDTInsertCharType,
 		Origin:      "temp",
 		OperationID: 4,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   tests.CreateInsertOp("2@temp", "b"),
 	}}
@@ -442,7 +453,7 @@ func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
 	require.NoError(t, err)
 
 	// Generate the document
-	doc, err := peer.CompileDocument("doc1")
+	doc, err := peer.CompileDocument(docID)
 	require.NoError(t, err)
 
 	print(doc)
@@ -458,6 +469,7 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 
 	println("-----------------TEST 1 STARTED - Removing a block------------------")
 
+	docID := "doc1"
 	block1ID := "1" + "@temp"
 	addBlock1 := types.CRDTAddBlock{
 		AfterBlock:  "",
@@ -476,13 +488,13 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 1,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   addBlock1,
 	}})
 	require.NoError(t, err)
 	// Add some text to the block
-	inserts := CreateInsertsFromString("Hello!", "temp", block1ID, 2)
+	inserts := tests.CreateInsertsFromString("Hello!", "temp", docID, block1ID, 2)
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
@@ -495,14 +507,14 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 		Type:        types.CRDTRemoveBlockType,
 		Origin:      "temp",
 		OperationID: 8,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   removeBlock,
 	}})
 	require.NoError(t, err)
 
 	// Compile the document
-	doc, err := peer.CompileDocument("doc1")
+	doc, err := peer.CompileDocument(docID)
 	require.NoError(t, err)
 	expected := "[]"
 	require.JSONEq(t, expected, doc)
@@ -530,7 +542,7 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "temp",
 		OperationID: 9,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block2ID,
 		Operation:   addBlock2,
 	},
@@ -538,7 +550,7 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add some text to the block
-	inserts = CreateInsertsFromString("World!", "temp", block2ID, 10)
+	inserts = tests.CreateInsertsFromString("World!", "temp", docID, block2ID, 10)
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
 
@@ -552,7 +564,7 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 		Type:        types.CRDTUpdateBlockType,
 		Origin:      "temp",
 		OperationID: 16,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block2ID,
 		Operation:   updateBlock,
 	},
@@ -560,7 +572,7 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	// Compile the document
-	doc, err = peer.CompileDocument("doc1")
+	doc, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
 	println(doc)
 
@@ -587,14 +599,14 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 		Type:        types.CRDTUpdateBlockType,
 		Origin:      "temp",
 		OperationID: 17,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block2ID,
 		Operation:   updateBlock,
 	}})
 	require.NoError(t, err)
 
 	// Compile the document
-	doc, err = peer.CompileDocument("doc1")
+	doc, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
 
 	expected = "[{\"id\":\"9@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"blue\",\"backgroundColor\":\"white\",\"textAlignment\":\"center\",\"level\":2},\"content\":[{\"type\":\"text\",\"charIds\":[\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
@@ -611,6 +623,7 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 
 	println("-----------------TEST 1 STARTED - Removing a block------------------")
 
+	docID := "doc1"
 	block1ID := "1" + "@yas"
 	addBlock1 := types.CRDTAddBlock{
 		AfterBlock:  "",
@@ -629,12 +642,12 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "yas",
 		OperationID: 1,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block1ID,
 		Operation:   addBlock1,
 	}}
 	// Add some text to the block
-	inserts1 := CreateInsertsFromString("1Y!", "yas", block1ID, 2) // last opId is 4
+	inserts1 := tests.CreateInsertsFromString("1Y!", "yas", docID, block1ID, 2) // last opId is 4
 	opYas = append(opYas, inserts1...)
 
 	// Add another block with the text "Block2Y!"
@@ -653,11 +666,11 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "yas",
 		OperationID: 5,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block2ID,
 		Operation:   addBlock2,
 	})
-	inserts2 := CreateInsertsFromString("2Y!", "yas", block2ID, 6) // last opId is 8
+	inserts2 := tests.CreateInsertsFromString("2Y!", "yas", docID, block2ID, 6) // last opId is 8
 	opYas = append(opYas, inserts2...)
 
 	// Now we create the operations for Ugo
@@ -676,12 +689,12 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "ugo",
 		OperationID: 1,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block3ID,
 		Operation:   addBlock3,
 	}}
 
-	inserts3 := CreateInsertsFromString("1U!", "ugo", block3ID, 2) // last opId is 4
+	inserts3 := tests.CreateInsertsFromString("1U!", "ugo", docID, block3ID, 2) // last opId is 4
 	opUgo = append(opUgo, inserts3...)
 
 	// Add another block with the text "2U!"
@@ -700,11 +713,11 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 		Type:        types.CRDTAddBlockType,
 		Origin:      "ugo",
 		OperationID: 5,
-		DocumentID:  "doc1",
+		DocumentID:  docID,
 		BlockID:     block4ID,
 		Operation:   addBlock4,
 	})
-	inserts4 := CreateInsertsFromString("2U!", "ugo", block4ID, 6) // last opId is 8
+	inserts4 := tests.CreateInsertsFromString("2U!", "ugo", docID, block4ID, 6) // last opId is 8
 	opUgo = append(opUgo, inserts4...)
 
 	// Now we apply the operations
@@ -718,13 +731,10 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 	require.NoError(t, err)
 
 	// Compile the document
-	docYas, err := peerYas.CompileDocument("doc1")
+	docYas, err := peerYas.CompileDocument(docID)
 	require.NoError(t, err)
-	docUgo, err := peerUgo.CompileDocument("doc1")
+	docUgo, err := peerUgo.CompileDocument(docID)
 	require.NoError(t, err)
-
-	println(docYas)
-	println(docUgo)
 
 	require.JSONEq(t, docYas, docUgo)
 }

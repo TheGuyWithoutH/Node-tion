@@ -2,6 +2,7 @@ package unit
 
 import (
 	z "Node-tion/backend/internal/testing"
+	"Node-tion/backend/peer/tests"
 	"Node-tion/backend/transport"
 	"Node-tion/backend/transport/channel"
 	"Node-tion/backend/types"
@@ -26,109 +27,9 @@ func Test_Editor_Simple_Update(t *testing.T) {
 
 	// sending a CRDT message
 
-	crdtOp := types.CRDTOperation{
-		Type:        types.CRDTAddBlockType,
-		Origin:      sender.GetAddress(),
-		OperationID: 1,
-		DocumentID:  "doc1",
-		BlockID:     "block1",
-		Operation: types.CRDTAddBlock{
-			BlockType: types.HeadingBlockType,
-			Props: types.DefaultBlockProps{
-				BackgroundColor: "white",
-				TextColor:       "black",
-				TextAlignment:   "left",
-			},
-		},
-	}
-
-	crdtMsg := types.CRDTOperationsMessage{
-		Operations: []types.CRDTOperation{crdtOp},
-	}
-
-	transpMsg, err := receiver.GetRegistry().MarshalMessage(&crdtMsg)
-	require.NoError(t, err)
-
-	header := transport.NewHeader(sender.GetAddress(), sender.GetAddress(), receiver.GetAddr())
-
-	packet := transport.Packet{
-		Header: &header,
-		Msg:    &transpMsg,
-	}
-
-	err = sender.Send(receiver.GetAddr(), packet, 0)
-	require.NoError(t, err)
-
-	time.Sleep(time.Second)
-
-	// > editor must be updated
-
-	require.Len(t, receiver.GetIns(), 1)
-	require.Len(t, receiver.GetOuts(), 0)
-
-	require.Len(t, receiver.GetDocumentOps("doc1"), 1)
-	require.Len(t, receiver.GetBlockOps("doc1", "block1"), 1)
-
-	require.Equal(t, crdtOp.OperationID, receiver.GetBlockOps("doc1", "block1")[0].OperationID)
-	require.Equal(t, crdtOp.Origin, receiver.GetBlockOps("doc1", "block1")[0].Origin)
-
-	require.Equal(t, crdtOp, receiver.GetBlockOps("doc1", "block1")[0])
-}
-
-// Check that the Editor can handle an update with multiple operations.
-func Test_Editor_Multiple_Operations(t *testing.T) {
-	transp := channel.NewTransport()
-
-	receiver := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
-	defer receiver.Stop()
-
-	sender, err := z.NewSenderSocket(transp, "127.0.0.1:0")
-	require.NoError(t, err)
-
-	receiver.AddPeer(sender.GetAddress())
-
-	// sending multiple CRDT messages
-
-	crdt1 := types.CRDTAddBlock{
-		BlockType: types.ParagraphBlockType,
-		Props:     types.DefaultBlockProps{},
-	}
-
-	crdtOp1 := types.CRDTOperation{
-		Type:        types.CRDTAddBlockType,
-		Origin:      sender.GetAddress(),
-		OperationID: 1,
-		DocumentID:  "doc1",
-		BlockID:     "block1",
-		Operation:   crdt1,
-	}
-
-	crdt2 := types.CRDTInsertChar{}
-
-	crdtOp2 := types.CRDTOperation{
-		Type:        types.CRDTInsertCharType,
-		Origin:      sender.GetAddress(),
-		OperationID: 2,
-		DocumentID:  "doc1",
-		BlockID:     "block1",
-		Operation:   crdt2,
-	}
-
-	crdt3 := types.CRDTAddBlock{
-		BlockType: types.ParagraphBlockType,
-		Props:     types.DefaultBlockProps{},
-	}
-
-	crdtOp3 := types.CRDTOperation{
-		Type:        types.CRDTAddBlockType,
-		Origin:      sender.GetAddress(),
-		OperationID: 3,
-		DocumentID:  "doc1",
-		BlockID:     "block2",
-		Operation:   crdt3,
-	}
-
-	ops := []types.CRDTOperation{crdtOp1, crdtOp2, crdtOp3}
+	docID := "doc1"
+	blockID := "block1"
+	ops := tests.CreateNewBlockOp(sender.GetAddress(), docID, blockID)
 
 	crdtMsg := types.CRDTOperationsMessage{
 		Operations: ops,
@@ -154,11 +55,72 @@ func Test_Editor_Multiple_Operations(t *testing.T) {
 	require.Len(t, receiver.GetIns(), 1)
 	require.Len(t, receiver.GetOuts(), 0)
 
-	require.Len(t, receiver.GetDocumentOps("doc1"), 2)
-	require.Len(t, receiver.GetBlockOps("doc1", "block1"), 2)
-	require.Len(t, receiver.GetBlockOps("doc1", "block2"), 1)
+	require.Len(t, receiver.GetDocumentOps(docID), 2) // 1 for the ops of BlockType and 1 for the block
+	require.Len(t, receiver.GetBlockOps(docID, docID), 1)
+	require.Len(t, receiver.GetBlockOps(docID, blockID), 0)
 
-	require.Len(t, receiver.GetBlockOps("doc1", "block0"), 0) // No operations on block0
+	require.Equal(t, ops[0].OperationID, receiver.GetBlockOps(docID, docID)[0].OperationID)
+	require.Equal(t, ops[0].Origin, receiver.GetBlockOps(docID, docID)[0].Origin)
+
+	require.Equal(t, ops[0], receiver.GetBlockOps(docID, docID)[0])
+}
+
+// Check that the Editor can handle an update with multiple operations.
+//
+// add block, insert char, add block
+func Test_Editor_Multiple_Operations(t *testing.T) {
+	transp := channel.NewTransport()
+
+	receiver := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer receiver.Stop()
+
+	sender, err := z.NewSenderSocket(transp, "127.0.0.1:0")
+	require.NoError(t, err)
+
+	receiver.AddPeer(sender.GetAddress())
+
+	// sending multiple CRDT messages
+
+	docID := "doc1"
+	blockID1 := "block1"
+	ops1 := tests.CreateNewBlockOp(sender.GetAddress(), docID, blockID1)
+
+	ops2 := tests.CreateInsertsFromString("a", sender.GetAddress(), docID, blockID1, 1)
+
+	blockID2 := "block2"
+	ops3 := tests.CreateNewBlockOp(sender.GetAddress(), docID, blockID2)
+
+	ops := append(ops1, ops2...)
+	ops = append(ops, ops3...)
+
+	crdtMsg := types.CRDTOperationsMessage{
+		Operations: ops,
+	}
+
+	transpMsg, err := receiver.GetRegistry().MarshalMessage(&crdtMsg)
+	require.NoError(t, err)
+
+	header := transport.NewHeader(sender.GetAddress(), sender.GetAddress(), receiver.GetAddr())
+
+	packet := transport.Packet{
+		Header: &header,
+		Msg:    &transpMsg,
+	}
+
+	err = sender.Send(receiver.GetAddr(), packet, 0)
+	require.NoError(t, err)
+
+	time.Sleep(time.Second)
+
+	// > editor must be updated
+
+	require.Len(t, receiver.GetIns(), 1)
+	require.Len(t, receiver.GetOuts(), 0)
+
+	require.Len(t, receiver.GetDocumentOps(docID), 3)        // 1 for the ops of BlockType and 2 for the blocks
+	require.Len(t, receiver.GetBlockOps(docID, docID), 2)    // 2 add blocks
+	require.Len(t, receiver.GetBlockOps(docID, blockID1), 1) // 1 insert char
+	require.Len(t, receiver.GetBlockOps(docID, blockID2), 0) // No operations on block2
 }
 
 // Check that a Broadcast of CRDTOperationsMessage between two nodes works.
@@ -178,20 +140,12 @@ func Test_Editor_Broadcast(t *testing.T) {
 
 			node1.AddPeer(node2.GetAddr())
 
-			crdtOp := types.CRDTOperation{
-				Type:        types.CRDTAddBlockType,
-				Origin:      node1.GetAddr(),
-				OperationID: 1,
-				DocumentID:  "doc1",
-				BlockID:     "block1",
-				Operation: types.CRDTAddBlock{
-					BlockType: types.NumberedListBlockType,
-					Props:     types.DefaultBlockProps{},
-				},
-			}
+			docID := "doc1"
+			blockID := "block1"
+			ops := tests.CreateNewBlockOp(node1.GetAddr(), docID, blockID)
 
 			crdtMsg := types.CRDTOperationsMessage{
-				Operations: []types.CRDTOperation{crdtOp},
+				Operations: ops,
 			}
 
 			transpMsg, err := node1.GetRegistry().MarshalMessage(&crdtMsg)
@@ -287,15 +241,17 @@ func Test_Editor_Broadcast(t *testing.T) {
 
 			// > Editor of node1 and node2 should be updated
 
-			require.Len(t, node1.GetDocumentOps("doc1"), 1)
-			require.Len(t, node1.GetBlockOps("doc1", "block1"), 1)
+			require.Len(t, node1.GetDocumentOps(docID), 2)
+			require.Len(t, node1.GetBlockOps(docID, docID), 1)
+			require.Len(t, node1.GetBlockOps(docID, blockID), 0)
 
-			require.Len(t, node2.GetDocumentOps("doc1"), 1)
-			require.Len(t, node2.GetBlockOps("doc1", "block1"), 1)
+			require.Len(t, node2.GetDocumentOps(docID), 2)
+			require.Len(t, node2.GetBlockOps(docID, docID), 1)
+			require.Len(t, node2.GetBlockOps(docID, blockID), 0)
 
-			require.Equal(t, crdtOp, node1.GetBlockOps("doc1", "block1")[0])
+			require.Equal(t, ops[0], node1.GetBlockOps(docID, docID)[0])
 
-			require.Equal(t, crdtOp, node2.GetBlockOps("doc1", "block1")[0])
+			require.Equal(t, ops[0], node2.GetBlockOps(docID, docID)[0])
 		}
 	}
 
@@ -321,20 +277,12 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 	node3 := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithAntiEntropy(time.Millisecond*50))
 	defer node3.Stop()
 
-	crdtOp := types.CRDTOperation{
-		Type:        types.CRDTAddBlockType,
-		Origin:      node1.GetAddr(),
-		OperationID: 1,
-		DocumentID:  "doc1",
-		BlockID:     "block1",
-		Operation: types.CRDTAddBlock{
-			BlockType: types.BulletedListBlockType,
-			Props:     types.DefaultBlockProps{},
-		},
-	}
+	docID := "doc1"
+	blockID := "block1"
+	ops := tests.CreateNewBlockOp(node1.GetAddr(), docID, blockID)
 
 	crdtMsg := types.CRDTOperationsMessage{
-		Operations: []types.CRDTOperation{crdtOp},
+		Operations: ops,
 	}
 
 	transpMsg, err := node1.GetRegistry().MarshalMessage(&crdtMsg)
@@ -356,18 +304,21 @@ func Test_Editor_Broadcast_CatchUp(t *testing.T) {
 
 	// > check that every node has the same Editors
 
-	require.Len(t, node1.GetDocumentOps("doc1"), 1)
-	require.Len(t, node1.GetBlockOps("doc1", "block1"), 1)
+	require.Len(t, node1.GetDocumentOps(docID), 2)
+	require.Len(t, node1.GetBlockOps(docID, docID), 1)
+	require.Len(t, node1.GetBlockOps(docID, blockID), 0)
 
-	require.Len(t, node2.GetDocumentOps("doc1"), 1)
-	require.Len(t, node2.GetBlockOps("doc1", "block1"), 1)
+	require.Len(t, node2.GetDocumentOps(docID), 2)
+	require.Len(t, node2.GetBlockOps(docID, docID), 1)
+	require.Len(t, node2.GetBlockOps(docID, blockID), 0)
 
-	require.Len(t, node3.GetDocumentOps("doc1"), 1)
-	require.Len(t, node3.GetBlockOps("doc1", "block1"), 1)
+	require.Len(t, node3.GetDocumentOps(docID), 2)
+	require.Len(t, node3.GetBlockOps(docID, docID), 1)
+	require.Len(t, node3.GetBlockOps(docID, blockID), 0)
 
-	require.Equal(t, crdtOp, node1.GetBlockOps("doc1", "block1")[0])
-	require.Equal(t, crdtOp, node2.GetBlockOps("doc1", "block1")[0])
-	require.Equal(t, crdtOp, node3.GetBlockOps("doc1", "block1")[0])
+	require.Equal(t, ops[0], node1.GetBlockOps(docID, docID)[0])
+	require.Equal(t, ops[0], node2.GetBlockOps(docID, docID)[0])
+	require.Equal(t, ops[0], node3.GetBlockOps(docID, docID)[0])
 }
 
 // Check that Editors have the same sizes after a Broadcast of CRDTOperationsMessage
@@ -388,39 +339,21 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 	node3 := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithAntiEntropy(time.Millisecond*50))
 	defer node3.Stop()
 
-	crdtOp1 := types.CRDTOperation{
-		Type:        types.CRDTAddBlockType,
-		Origin:      node1.GetAddr(),
-		OperationID: 1,
-		DocumentID:  "doc1",
-		BlockID:     "block1",
-		Operation: types.CRDTAddBlock{
-			BlockType: types.ParagraphBlockType,
-			Props:     types.DefaultBlockProps{},
-		},
-	}
+	docID := "doc1"
+	blockID := "block1"
+	ops1 := tests.CreateNewBlockOp(node1.GetAddr(), docID, blockID)
 
 	crdtMsg1 := types.CRDTOperationsMessage{
-		Operations: []types.CRDTOperation{crdtOp1},
+		Operations: ops1,
 	}
 
 	transpMsg1, err := node1.GetRegistry().MarshalMessage(&crdtMsg1)
 	require.NoError(t, err)
 
-	crdtOp2 := types.CRDTOperation{
-		Type:        types.CRDTAddBlockType,
-		Origin:      node3.GetAddr(),
-		OperationID: 2,
-		DocumentID:  "doc1",
-		BlockID:     "block1",
-		Operation: types.CRDTAddBlock{
-			BlockType: types.ParagraphBlockType,
-			Props:     types.DefaultBlockProps{},
-		},
-	}
+	ops2 := tests.CreateNewBlockOp(node3.GetAddr(), docID, blockID)
 
 	crdtMsg2 := types.CRDTOperationsMessage{
-		Operations: []types.CRDTOperation{crdtOp2},
+		Operations: ops2,
 	}
 
 	transpMsg2, err := node1.GetRegistry().MarshalMessage(&crdtMsg2)
@@ -442,31 +375,34 @@ func Test_Editor_Broadcast_Two_Sides(t *testing.T) {
 
 	// > check that every node has the same Editors
 
-	require.Len(t, node1.GetDocumentOps("doc1"), 1)
-	require.Len(t, node1.GetBlockOps("doc1", "block1"), 2)
+	require.Len(t, node1.GetDocumentOps(docID), 2)
+	require.Len(t, node1.GetBlockOps(docID, docID), 2)
+	require.Len(t, node1.GetBlockOps(docID, blockID), 0)
 
-	require.Len(t, node2.GetDocumentOps("doc1"), 1)
-	require.Len(t, node2.GetBlockOps("doc1", "block1"), 2)
+	require.Len(t, node2.GetDocumentOps(docID), 2)
+	require.Len(t, node2.GetBlockOps(docID, docID), 2)
+	require.Len(t, node2.GetBlockOps(docID, blockID), 0)
 
-	require.Len(t, node3.GetDocumentOps("doc1"), 1)
-	require.Len(t, node3.GetBlockOps("doc1", "block1"), 2)
+	require.Len(t, node3.GetDocumentOps(docID), 2)
+	require.Len(t, node3.GetBlockOps(docID, docID), 2)
+	require.Len(t, node3.GetBlockOps(docID, blockID), 0)
 
 	// > sort the operations by Origin (since OperationID is the same) and check that they are the same
-	ops := node1.GetBlockOps("doc1", "block1")
+	ops := node1.GetBlockOps(docID, docID)
 	sorted1 := make([]types.CRDTOperation, len(ops))
 	copy(sorted1, ops)
 	sort.Slice(sorted1, func(i, j int) bool {
 		return sorted1[i].Origin < sorted1[j].Origin
 	})
 
-	ops = node2.GetBlockOps("doc1", "block1")
+	ops = node2.GetBlockOps(docID, docID)
 	sorted2 := make([]types.CRDTOperation, len(ops))
 	copy(sorted2, ops)
 	sort.Slice(sorted2, func(i, j int) bool {
 		return sorted2[i].Origin < sorted2[j].Origin
 	})
 
-	ops = node3.GetBlockOps("doc1", "block1")
+	ops = node3.GetBlockOps(docID, docID)
 	sorted3 := make([]types.CRDTOperation, len(ops))
 	copy(sorted3, ops)
 	sort.Slice(sorted3, func(i, j int) bool {

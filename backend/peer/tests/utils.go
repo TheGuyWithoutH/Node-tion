@@ -22,7 +22,7 @@ func CreateInsertsFromString(content string, addr, docID, blockID string, insert
 				Type:        types.CRDTInsertCharType,
 				Origin:      addr,
 				OperationID: uint64(i + insertStart),
-				DocumentID:  "doc1",
+				DocumentID:  docID,
 				BlockID:     blockID,
 				Operation:   CreateInsertOp(strconv.Itoa(i+insertStart-1)+"@"+addr, string(char)),
 			}
