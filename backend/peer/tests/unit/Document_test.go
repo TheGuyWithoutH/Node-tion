@@ -2,6 +2,7 @@ package unit
 
 import (
 	z "Node-tion/backend/internal/testing"
+	"Node-tion/backend/peer/tests"
 	"Node-tion/backend/transport/channel"
 	"Node-tion/backend/types"
 	"fmt"
@@ -24,7 +25,7 @@ func CreateInsertsFromString(content string, addr string, blockID string, insert
 				OperationID: uint64(i + insertStart),
 				DocumentID:  "doc1",
 				BlockID:     blockID,
-				Operation:   CreateInsertOp("", string(char)),
+				Operation:   tests.CreateInsertOp("", string(char)),
 			}
 		} else {
 			ops[i] = types.CRDTOperation{
@@ -33,18 +34,11 @@ func CreateInsertsFromString(content string, addr string, blockID string, insert
 				OperationID: uint64(i + insertStart),
 				DocumentID:  "doc1",
 				BlockID:     blockID,
-				Operation:   CreateInsertOp(strconv.Itoa(i+insertStart-1)+"@"+addr, string(char)),
+				Operation:   tests.CreateInsertOp(strconv.Itoa(i+insertStart-1)+"@"+addr, string(char)),
 			}
 		}
 	}
 	return ops
-}
-
-func CreateInsertOp(afterID string, content string) types.CRDTInsertChar {
-	return types.CRDTInsertChar{
-		AfterID:   afterID,
-		Character: content,
-	}
 }
 
 // ----- Tests -----
@@ -424,7 +418,7 @@ func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
 		OperationID: 4,
 		DocumentID:  "doc1",
 		BlockID:     block1ID,
-		Operation:   CreateInsertOp("2@temp", "b"),
+		Operation:   tests.CreateInsertOp("2@temp", "b"),
 	}}
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
