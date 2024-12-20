@@ -526,6 +526,9 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 				// Check where to add the block in the children
 				for i := range document[index].Children {
 					added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+					if added {
+						break
+					}
 				}
 			}
 		} else {
@@ -533,6 +536,9 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 			if document[index].Children != nil {
 				for i := range document[index].Children {
 					added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+					if added {
+						break
+					}
 				}
 			}
 		}
@@ -552,6 +558,9 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 				for i := range document[index].Children {
 					// Recursively check the children blocks
 					added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+					if added {
+						break
+					}
 				}
 			}
 		}
