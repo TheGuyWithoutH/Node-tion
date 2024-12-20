@@ -25,7 +25,7 @@ var logIO = zerolog.ConsoleWriter{
 func NewPeer(conf peer.Configuration) peer.Peer {
 	logger := newLogger(logIO, zerolog.ErrorLevel)
 	loggerPAXOS := newLogger(logIO, zerolog.NoLevel)
-	loggerCRDT := newLogger(logIO, zerolog.DebugLevel)
+	loggerCRDT := newLogger(logIO, zerolog.ErrorLevel)
 
 	routingTable := newRoutingTable()
 	view := newView()

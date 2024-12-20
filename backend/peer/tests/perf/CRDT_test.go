@@ -18,30 +18,152 @@ import (
 // Run Benchmark: 1 node, 1 round, 10 operations
 // Time taken for initial document loading and rendering in the editor.
 
-// This test executes the exact same function as the BenchmarkCRDT below.
+// This test executes the exact same function as the BenchmarkCRDTSingle below.
 // Its goal is mainly to raise any error that could occur during its execution as the benchmark hides them.
-func Test_CRDT_Benchmark_Correctness(t *testing.T) {
-	runCRDT(t, 1, 1, 10)
+func Test_CRDT_Single_Doc_Benchmark_Correctness(t *testing.T) {
+	runCRDTSingle(t, 10)
 }
 
-// Run BenchmarkCRDT and compare results to reference assessments.
-// TODO Run as follow: make test_bench_crdt
-func Test_CRDT_BenchmarkCRDT(t *testing.T) {
+// Run BenchmarkCRDTSingle and compare results to reference assessments
+func Test_CRDT_Single_Doc_BenchmarkCRDTSingle(t *testing.T) {
 	// run the benchmark
+	res := testing.Benchmark(BenchmarkCRDTSingle)
+	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
+	assessSpeed(t, res, []speedThresholds{
+		{"speed great", 100 * time.Millisecond},
+		{"speed ok", 1 * time.Second},
+		{"speed passable", 5 * time.Second},
+	})
+	res = testing.Benchmark(BenchmarkCRDTSingle)
+}
+
+// Calculate the time it takes to process N CRDT operations and
+// compile the document. The operations are randomly generated.
+func BenchmarkCRDTSingle(b *testing.B) {
+	// Disable outputs to not penalize implementations that make use of it
+	oldStdout := os.Stdout
+	os.Stdout = nil
+	defer func() {
+		os.Stdout = oldStdout
+	}()
+	runCRDTSingle(b, 10)
+}
+func runCRDTSingle(t require.TestingT, opN int) {
+	transp := channelFac()
+	node1 := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	docID := "0@" + node1.GetAddr()
+	blockID := "1@" + node1.GetAddr()
+	op := tests.CreateNewBlockOp(node1.GetAddr(), docID, blockID)
+	crdtMgs := types.CRDTOperationsMessage{
+		Operations: op,
+	}
+	err := node1.SaveTransactions(crdtMgs)
+	require.NoError(t, err)
+
+	time.Sleep(time.Millisecond * 10)
+
+	// Generate opN random operations
+	ops := make([]types.CRDTOperation, opN)
+
+	for i := 0; i < opN; i++ {
+		// random character
+		char := string(rune(rand.Intn(26) + 97))
+		ops[i] = tests.CreateInsertsFromString(char, node1.GetAddr(), docID, blockID, i)[0]
+	}
+	for _, op := range ops {
+		crdtMsg := types.CRDTOperationsMessage{
+			Operations: []types.CRDTOperation{op},
+		}
+		err := node1.SaveTransactions(crdtMsg)
+		require.NoError(t, err)
+	}
+	_, err = node1.CompileDocument(docID)
+	require.NoError(t, err)
+	// cleanup
+	node1.Stop()
+}
+
+//-----------------------------------------------------------------------------------------------
+// Run Benchmark: 100 operations, 1 round, variable number of nodes (2, 5, 10)
+// Storage / bandwidth overhead of the CRDT.
+
+// This test executes the exact same function as the BenchmarkCRDTMultiNodes below.
+// Its goal is mainly to raise any error that could occur during its execution as the benchmark hides them.
+func Test_CRDT_Benchmark_Correctness_Multi_Nodes(t *testing.T) {
+	runCRDT(t, 1, 1, 100)
+	runCRDT(t, 2, 1, 100)
+	runCRDT(t, 5, 1, 100)
+	runCRDT(t, 10, 1, 100)
+}
+
+// Run runCRDT and compare results to reference assessments.
+func Test_CRDT_BenchmarkCRDTMultiNodes(t *testing.T) {
+	// run the benchmark for 1 node
 	res := testing.Benchmark(BenchmarkCRDT)
 
 	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
 	assessAllocs(t, res, []allocThresholds{
-		{"allocs great", 10_000, 500_000}, // TODO 4906, 315952
+		{"allocs great", 10_000, 500_000}, // 4906, 315952
 		{"allocs ok", 20_000, 1_000_000},
 		{"allocs passable", 50_000, 2_000_000},
 	})
 
 	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
 	assessSpeed(t, res, []speedThresholds{
-		{"speed great", 500 * time.Millisecond}, // TODO 217.162025ms
+		{"speed great", 500 * time.Millisecond}, // 217.162025ms (100ms of sleep time)
 		{"speed ok", 1 * time.Second},
 		{"speed passable", 2 * time.Second},
+	})
+
+	// run the benchmark for 2 nodes
+	res = testing.Benchmark(BenchmarkCRDTTwoNodes)
+
+	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
+	assessAllocs(t, res, []allocThresholds{
+		{"allocs great", 200_000, 20_000_000}, // 137827, 10761842
+		{"allocs ok", 400_000, 40_000_000},
+		{"allocs passable", 750_000, 75_000_000},
+	})
+
+	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
+	assessSpeed(t, res, []speedThresholds{
+		{"speed great", 500 * time.Millisecond}, // 357.375486ms
+		{"speed ok", 1 * time.Second},
+		{"speed passable", 2 * time.Second},
+	})
+
+	// run the benchmark for 5 nodes
+	res = testing.Benchmark(BenchmarkCRDTFiveNodes)
+
+	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
+	assessAllocs(t, res, []allocThresholds{
+		{"allocs great", 300_000, 30_000_000}, // 218492, 19107136
+		{"allocs ok", 500_000, 50_000_000},
+		{"allocs passable", 1_000_000, 100_000_000},
+	})
+
+	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
+	assessSpeed(t, res, []speedThresholds{
+		{"speed great", 1200 * time.Millisecond}, // 744.088312ms
+		{"speed ok", 2 * time.Second},
+		{"speed passable", 5 * time.Second},
+	})
+
+	// run the benchmark for 10 nodes
+	res = testing.Benchmark(BenchmarkCRDTTenNodes)
+
+	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
+	assessAllocs(t, res, []allocThresholds{
+		{"allocs great", 750_000, 75_000_000}, // 413671, 33072456
+		{"allocs ok", 1_000_000, 100_000_000},
+		{"allocs passable", 1_500_000, 150_000_000},
+	})
+
+	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
+	assessSpeed(t, res, []speedThresholds{
+		{"speed great", 2 * time.Second}, // 1.38834375s
+		{"speed ok", 5 * time.Second},
+		{"speed passable", 10 * time.Second},
 	})
 }
 
@@ -59,72 +181,6 @@ func BenchmarkCRDT(b *testing.B) {
 	}()
 
 	runCRDT(b, 1, b.N, 10)
-}
-
-//-----------------------------------------------------------------------------------------------
-// Run Benchmark: 100 operations, 1 round, variable number of nodes (2, 5, 10)
-// Storage / bandwidth overhead of the CRDT.
-
-// This test executes the exact same function as the BenchmarkCRDTMultiNodes below.
-// Its goal is mainly to raise any error that could occur during its execution as the benchmark hides them.
-func Test_CRDT_Benchmark_Correctness_Multi_Nodes(t *testing.T) {
-	runCRDT(t, 2, 1, 100)
-	runCRDT(t, 5, 1, 100)
-	runCRDT(t, 10, 1, 100)
-}
-
-// Run runCRDT and compare results to reference assessments.
-func Test_CRDT_BenchmarkCRDTMultiNodes(t *testing.T) {
-	// run the benchmark for 2 nodes
-	res := testing.Benchmark(BenchmarkCRDTTwoNodes)
-
-	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
-	assessAllocs(t, res, []allocThresholds{
-		{"allocs great", 200_000, 20_000_000}, // TODO 137827, 10761842
-		{"allocs ok", 400_000, 40_000_000},
-		{"allocs passable", 750_000, 75_000_000},
-	})
-
-	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
-	assessSpeed(t, res, []speedThresholds{
-		{"speed great", 500 * time.Millisecond}, // TODO 357.375486ms
-		{"speed ok", 1 * time.Second},
-		{"speed passable", 2 * time.Second},
-	})
-
-	// run the benchmark for 5 nodes
-	res = testing.Benchmark(BenchmarkCRDTFiveNodes)
-
-	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
-	assessAllocs(t, res, []allocThresholds{
-		{"allocs great", 300_000, 30_000_000}, // TODO 218492, 19107136
-		{"allocs ok", 500_000, 50_000_000},
-		{"allocs passable", 1_000_000, 100_000_000},
-	})
-
-	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
-	assessSpeed(t, res, []speedThresholds{
-		{"speed great", 1 * time.Second}, // TODO 744.088312ms
-		{"speed ok", 2 * time.Second},
-		{"speed passable", 5 * time.Second},
-	})
-
-	// run the benchmark for 5 nodes
-	res = testing.Benchmark(BenchmarkCRDTTenNodes)
-
-	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
-	assessAllocs(t, res, []allocThresholds{
-		{"allocs great", 500_000, 50_000_000}, // TODO 413671, 33072456
-		{"allocs ok", 1_000_000, 100_000_000},
-		{"allocs passable", 1_500_000, 150_000_000},
-	})
-
-	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
-	assessSpeed(t, res, []speedThresholds{
-		{"speed great", 2 * time.Second}, // TODO 1.38834375s
-		{"speed ok", 5 * time.Second},
-		{"speed passable", 10 * time.Second},
-	})
 }
 
 func BenchmarkCRDTTwoNodes(b *testing.B) {
@@ -149,7 +205,6 @@ func BenchmarkCRDTFiveNodes(b *testing.B) {
 	}()
 
 	runCRDT(b, 5, b.N, 100)
-	// TODO results
 	// with 100 ops - ~2s
 	// with 200 ops - ~23s
 	// with 500 ops - >1m43s
@@ -174,58 +229,76 @@ func BenchmarkCRDTTenNodes(b *testing.B) {
 func Test_CRDT_Benchmark_Correctness_Scale_Ops(t *testing.T) {
 	runCRDT(t, 1, 1, 100)
 	runCRDT(t, 1, 1, 1000)
+	runCRDT(t, 1, 1, 5000)
 	runCRDT(t, 1, 1, 10000)
 }
 
 // Run runCRDT and compare results to reference assessments.
 func Test_CRDT_BenchmarkCRDT_Scale_Ops(t *testing.T) {
-	// run the benchmark for 2 nodes
+	// run the benchmark for 100 ops
 	res := testing.Benchmark(BenchmarkCRDTSmallOps)
 
 	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
 	assessAllocs(t, res, []allocThresholds{
-		{"allocs great", 100_000, 5_000_000}, // TODO 37641, 2456243
+		{"allocs great", 100_000, 5_000_000}, // 12979, 992326
 		{"allocs ok", 200_000, 10_000_000},
 		{"allocs passable", 500_000, 20_000_000},
 	})
 
 	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
 	assessSpeed(t, res, []speedThresholds{
-		{"speed great", 500 * time.Millisecond}, // TODO 233.449358ms
+		{"speed great", 500 * time.Millisecond}, // 233.449358ms
 		{"speed ok", 1 * time.Second},
 		{"speed passable", 2 * time.Second},
 	})
 
-	// run the benchmark for 5 nodes
+	// run the benchmark for 1000 ops
 	res = testing.Benchmark(BenchmarkCRDTMediumOps)
 
 	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
 	assessAllocs(t, res, []allocThresholds{
-		{"allocs great", 500_000, 50_000_000}, // TODO 389084, 29604064
+		{"allocs great", 500_000, 50_000_000}, // 129164, 18441812
 		{"allocs ok", 750_000, 75_000_000},
 		{"allocs passable", 1_000_000, 100_000_000},
 	})
 
 	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
 	assessSpeed(t, res, []speedThresholds{
-		{"speed great", 1 * time.Second}, // TODO 527.740027ms
+		{"speed great", 1 * time.Second}, // 254.217725ms
 		{"speed ok", 2 * time.Second},
 		{"speed passable", 5 * time.Second},
 	})
 
-	// run the benchmark for 5 nodes
+	// run the benchmark for 5000 ops
+	res = testing.Benchmark(BenchmarkCRDTMediumLargeOps)
+
+	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
+	assessAllocs(t, res, []allocThresholds{
+		{"allocs great", 1_000_000, 500_000_000}, // 652594, 299582392
+		{"allocs ok", 2_000_000, 1_000_000_000},
+		{"allocs passable", 10_000_000, 5_000_000_000},
+	})
+
+	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
+	assessSpeed(t, res, []speedThresholds{
+		{"speed great", 2 * time.Second}, // 870.914145ms
+		{"speed ok", 5 * time.Second},
+		{"speed passable", 10 * time.Second},
+	})
+
+	// run the benchmark for 10000
 	res = testing.Benchmark(BenchmarkCRDTLargeOps)
 
 	// assess allocation against thresholds, the performance thresholds is the allocation on GitHub
 	assessAllocs(t, res, []allocThresholds{
-		{"allocs great", 5_000_000, 1_000_000_000}, // TODO 4649973, 846101568
+		{"allocs great", 5_000_000, 2_000_000_000}, // 1327993, 1106469472
 		{"allocs ok", 10_000_000, 5_000_000_000},
 		{"allocs passable", 15_000_000, 10_000_000_000},
 	})
 
 	// assess execution speed against thresholds, the performance thresholds is the execution speed on GitHub
 	assessSpeed(t, res, []speedThresholds{
-		{"speed great", 10 * time.Second}, // TODO 6.731827583s
+		{"speed great", 10 * time.Second}, // 1.735723291s
 		{"speed ok", 15 * time.Second},
 		{"speed passable", 20 * time.Second},
 	})
@@ -254,6 +327,18 @@ func BenchmarkCRDTMediumOps(b *testing.B) {
 	}()
 
 	runCRDT(b, 1, b.N, 1000)
+}
+
+// Benchmark for 5000 ops
+func BenchmarkCRDTMediumLargeOps(b *testing.B) {
+	// Disable outputs to not penalize implementations that make use of it
+	oldStdout := os.Stdout
+	os.Stdout = nil
+	defer func() {
+		os.Stdout = oldStdout
+	}()
+
+	runCRDT(b, 1, b.N, 5000)
 }
 
 // Benchmark for 10000 ops
