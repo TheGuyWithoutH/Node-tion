@@ -657,6 +657,8 @@ func (n *node) findBlockToUpdateAndRemove(document []types.BlockFactory, index i
 		oldBlock := document[index]
 		updated = &oldBlock
 		document = append(document[:index], document[index+1:]...)
+
+		return updated, document
 	}
 
 	// Check if the block is a child block
