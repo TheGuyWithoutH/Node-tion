@@ -152,8 +152,6 @@ func Test_SaveTransactions_TempIDMappingWithEditor(t *testing.T) {
 	require.Equal(t, editor["doc1"]["1@"+node.GetAddr()][0].OperationID, uint64(1))
 	require.Equal(t, editor["doc1"]["2@"+node.GetAddr()][0].OperationID, uint64(2))
 
-	println("checkpoint")
-
 	bs, _ := json.Marshal(editor["doc1"]["1@"+node.GetAddr()][0].Operation)
 
 	addOp := types.CRDTAddBlock{}

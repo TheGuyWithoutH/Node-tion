@@ -91,10 +91,7 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 	expected := "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\": \"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{}}],\"children\":[]}]"
 
 	require.JSONEq(t, expected, doc)
-	print("-----------------TEST 1 PASSED------------------")
 
-	// Add another block with the text "World!" and in bold
-	print("-----------------TEST 2 STARTED - Adding second block------------------")
 	block2ID := "8" + "@temp"
 	addBlock2 := types.CRDTAddBlock{
 		AfterBlock:  block1ID,
@@ -158,10 +155,6 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 	expected = "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\",\"4@temp\",\"5@temp\",\"6@temp\",\"7@temp\"],\"text\":\"Hello!\",\"styles\":{\"bold\":true}}],\"children\":[]},{\"id\":\"8@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\",\"level\":1},\"content\":[{\"type\":\"text\",\"charIds\":[\"9@temp\",\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
 	require.JSONEq(t, expected, doc)
 
-	print("-----------------TEST 2 PASSED------------------")
-
-	print("-----------------TEST 3 STARTED - Adding third block------------------")
-
 	// Add a third block with the text "Hello World!"
 	block3ID := "16" + "@temp"
 	addBlock3 := types.CRDTAddBlock{
@@ -186,7 +179,7 @@ func Test_Document_Compilation_1Peer_MultipleBlocks(t *testing.T) {
 
 	// Add some text to the block
 	inserts = tests.CreateInsertsFromString("Block3", "temp", docID, block3ID, 17) // last opId is 22
-	err = peer.UpdateEditor(inserts)
+	_ = peer.UpdateEditor(inserts)
 
 	// Compile the document
 	doc, err = peer.CompileDocument(docID)
@@ -293,8 +286,6 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
 	defer peer.Stop()
 
-	println("-----------------TEST 1 STARTED - Adding parent block------------------")
-
 	docID := "doc1"
 	block1ID := "1@temp"
 	addBlock1 := types.CRDTAddBlock{
@@ -324,8 +315,6 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 	inserts := tests.CreateInsertsFromString("H1", "temp", docID, block1ID, 2) // last opId is 13
 	err = peer.UpdateEditor(inserts)
 	require.NoError(t, err)
-
-	println("TEST1: Adding a child block to the parent block")
 
 	// Add a child block
 	block2ID := "4@temp"
@@ -358,14 +347,9 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 	doc, err := peer.CompileDocument(docID)
 	require.NoError(t, err)
 
-	print(doc)
-
 	expected := "[{\"id\":\"1@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\",\"level\":1},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\"],\"text\":\"H1\",\"styles\":{}}],\"children\":[{\"id\":\"4@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"5@temp\",\"6@temp\",\"7@temp\",\"8@temp\",\"9@temp\"],\"text\":\"Child\",\"styles\":{}}],\"children\":[]}]}]"
 	require.JSONEq(t, expected, doc)
 
-	println("-----------------TEST 1 PASSED------------------")
-
-	println("-----------------TEST 2 STARTED - Adding second child block to the parent block------------------\n")
 	// Add a second child to the parent block
 	block3ID := "10@temp"
 	addBlock3 := types.CRDTAddBlock{
@@ -397,7 +381,6 @@ func Test_Document_Compilation_1Peer_BlockWithChildren(t *testing.T) {
 	// Generate the document
 	doc, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
-	print(doc)
 
 	expected = "[{\"id\":\"1@temp\",\"type\":\"heading\",\"props\":{\"level\":1,\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"3@temp\"],\"text\":\"H1\",\"styles\":{}}],\"children\":[{\"id\":\"4@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"5@temp\",\"6@temp\",\"7@temp\",\"8@temp\",\"9@temp\"],\"text\":\"Child\",\"styles\":{}}],\"children\":[]},{\"id\":\"10@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\",\"16@temp\"],\"text\":\"Child2\",\"styles\":{}}],\"children\":[]}]}]"
 	require.JSONEq(t, expected, doc)
@@ -407,8 +390,6 @@ func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
 	transp := channel.NewTransport()
 	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
 	defer peer.Stop()
-
-	println("-----------------TEST 1 STARTED - Adding unordered inserts------------------")
 
 	docID := "doc1"
 	block1ID := "1" + "@temp"
@@ -456,8 +437,6 @@ func Test_Document_Compilation_1Peer_UnorderedInserts(t *testing.T) {
 	doc, err := peer.CompileDocument(docID)
 	require.NoError(t, err)
 
-	print(doc)
-
 	expected := "[{\"id\":\"1@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@temp\",\"4@temp\",\"3@temp\"],\"text\":\"abc\",\"styles\":{}}],\"children\":[]}]"
 	require.JSONEq(t, expected, doc)
 }
@@ -466,8 +445,6 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 	transp := channel.NewTransport()
 	peer := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
 	defer peer.Stop()
-
-	println("-----------------TEST 1 STARTED - Removing a block------------------")
 
 	docID := "doc1"
 	block1ID := "1" + "@temp"
@@ -519,14 +496,10 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 	expected := "[]"
 	require.JSONEq(t, expected, doc)
 
-	println("-----------------TEST 1 PASSED------------------")
-
-	println("-----------------TEST 2 STARTED - Updating a block: Heading to Paragraph------------------")
-
 	// Add another block with the text "World!"
 	block2ID := "9" + "@temp"
 	addBlock2 := types.CRDTAddBlock{
-		AfterBlock:  "", //TODO: Should this be block1ID?
+		AfterBlock:  "",
 		ParentBlock: "",
 		BlockType:   types.HeadingBlockType,
 		Props: types.DefaultBlockProps{
@@ -574,14 +547,9 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 	// Compile the document
 	doc, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
-	println(doc)
 
 	expected = "[{\"id\":\"9@temp\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
 	require.JSONEq(t, expected, doc)
-
-	println("-----------------TEST 2 PASSED------------------")
-
-	println("-----------------TEST 3 STARTED - Updating a block: Paragraph to Heading + PROPS------------------")
 
 	// Update the block again to a heading block and change the blockProps
 	updateBlock = types.CRDTUpdateBlock{
@@ -610,7 +578,7 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	expected = "[{\"id\":\"9@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"blue\",\"backgroundColor\":\"white\",\"textAlignment\":\"center\",\"level\":2},\"content\":[{\"type\":\"text\",\"charIds\":[\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
-
+	require.JSONEq(t, expected, doc)
 }
 
 // Check that the CompileDocument can generate a JSON string from the editor of two peers
@@ -620,8 +588,6 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 	defer peerYas.Stop()
 	peerUgo := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
 	defer peerUgo.Stop()
-
-	println("-----------------TEST 1 STARTED - Removing a block------------------")
 
 	docID := "doc1"
 	block1ID := "1" + "@yas"
