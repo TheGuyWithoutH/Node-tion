@@ -3,6 +3,9 @@ import {
   RouterProvider,
   Outlet,
   useNavigate,
+  HashRouter,
+  Route,
+  Routes,
 } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/app-sidebar";
@@ -29,7 +32,7 @@ function Layout() {
       />
       <div className="p-4 mt-2 w-auto flex justify-center flex-1">
         <SidebarTrigger className="mt-4" />
-        <div className="w-full bg-white grid mx-auto py-8 max-w-[800px]">
+        <div className="w-full bg-white grid min-mx-8 mx-auto px-4 py-8 max-w-[800px]">
           {/* Outlet for child routes */}
           <Outlet />
         </div>
@@ -46,20 +49,35 @@ function Layout() {
 }
 
 // Define routes with the shared layout
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <Layout />, // Use the layout here
-    children: [
-      { index: true, element: <Home /> }, // Default child route
-      { path: "editor/:docID", element: <Editor /> },
-      { path: "add-peer", element: <Peer /> },
-    ],
-  },
-]);
+// const router = createBrowserRouter([
+//   {
+//     path: "/",
+//     element: <Layout />, // Use the layout here
+//     children: [
+//       { index: true, element: <Home /> }, // Default child route
+//       { path: "editor/:docID", element: <Editor /> },
+//       { path: "add-peer", element: <Peer /> },
+//     ],
+//   },
+// ]);
 
+// function App() {
+//   return <RouterProvider router={router} />;
+// }
+
+// Define routes using HashRouter
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route path="editor/:docID" element={<Editor />} />
+          <Route path="add-peer" element={<Peer />} />
+          <Route index element={<Home />} /> {/* Default child route */}
+        </Route>
+      </Routes>
+    </HashRouter>
+  );
 }
 
 export default App;

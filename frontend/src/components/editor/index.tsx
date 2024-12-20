@@ -109,6 +109,7 @@ export default function Editor() {
           <Button
             onClick={() => setIsViewingHistory(true)}
             variant={"secondary"}
+            disabled={true}
           >
             <History size={60} />
             History

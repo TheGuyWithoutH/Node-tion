@@ -203,11 +203,13 @@ const useOperationsHook = (documentId: string) => {
           console.log(doc);
           setDocument(JSON.parse(doc));
           setCharIds(extractCharIds(JSON.parse(doc)));
+          setNextTempOpNumber(1);
         })
         .catch((err) => {
           console.error("Error getting document", err);
           setDocument(mockDocument);
           setCharIds(extractCharIds(mockDocument));
+          setNextTempOpNumber(100);
         });
     } else {
       // Fix addBlock operations
@@ -229,8 +231,9 @@ const useOperationsHook = (documentId: string) => {
           // Get the new document from the server and update the local document
           CompileDocument("doc1")
             .then((doc) => {
-              console.log(doc);
-              setDocument(JSON.parse(doc));
+              const parsedDoc = JSON.parse(doc);
+              console.log(parsedDoc);
+              setDocument(parsedDoc);
               setCharIds(extractCharIds(JSON.parse(doc)));
             })
             .catch((err) => {
@@ -243,6 +246,7 @@ const useOperationsHook = (documentId: string) => {
           console.error("Error sending operations", err);
           setDocument(mockDocument);
           setCharIds(extractCharIds(mockDocument));
+          setNextTempOpNumber(100);
         });
     }
   };
@@ -259,21 +263,28 @@ const useOperationsHook = (documentId: string) => {
             setNextTempOpNumber(3);
             setDocument(EMPTY_DOC);
             setOperationsHistory(EMPTY_DOC_HISTORY(documentId));
+            setCharIds({});
             return;
           }
 
           setDocument(parsedDoc);
           setCharIds(extractCharIds(parsedDoc));
+          setOperationsHistory([]);
+          setNextTempOpNumber(1);
         })
         .catch((err) => {
           console.error("Error getting document", err);
           setDocument(mockDocument);
           setCharIds(extractCharIds(mockDocument));
+          setOperationsHistory([]);
+          setNextTempOpNumber(100);
         });
     } catch (err) {
       console.error("Error getting document", err);
       setDocument(mockDocument);
       setCharIds(extractCharIds(mockDocument));
+      setOperationsHistory([]);
+      setNextTempOpNumber(100);
     }
   }, [documentId]);
 

@@ -51,7 +51,7 @@ export function AppSidebar({
     },
     {
       title: "Editor",
-      url: "/editor",
+      url: "/#/editor",
       icon: Edit,
       children: [
         {
@@ -61,19 +61,19 @@ export function AppSidebar({
         },
         {
           title: "Test Document",
-          url: "/editor/doc1",
+          url: "/#/editor/doc1",
         },
         ...documentList
           .filter((doc) => doc !== "doc1")
           .map((doc) => ({
             title: doc.slice(0, 10),
-            url: `/editor/${doc}`,
+            url: `/#/editor/${doc}`,
           })),
       ],
     },
     {
       title: "Add Peer",
-      url: "/add-peer",
+      url: "/#/add-peer",
       icon: User2Icon,
     },
   ];
