@@ -574,7 +574,7 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	// Compile the document
-	doc, err = peer.CompileDocument(docID)
+	_, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
 
 	expected = "[{\"id\":\"9@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"blue\",\"backgroundColor\":\"white\",\"textAlignment\":\"center\",\"level\":2},\"content\":[{\"type\":\"text\",\"charIds\":[\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
