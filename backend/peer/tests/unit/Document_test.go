@@ -603,7 +603,127 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 
 // Check that the CompileDocument can generate a JSON string from the editor of two peers
 func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
+	transp := channel.NewTransport()
+	peerYas := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peerYas.Stop()
+	peerUgo := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peerUgo.Stop()
 
+	println("-----------------TEST 1 STARTED - Removing a block------------------")
+
+	block1ID := "1" + "@yas"
+	addBlock1 := types.CRDTAddBlock{
+		AfterBlock:  "",
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		},
+	}
+
+	// Populate the editor with some operations
+	//Add a block
+	opYas := []types.CRDTOperation{{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "yas",
+		OperationID: 1,
+		DocumentID:  "doc1",
+		BlockID:     block1ID,
+		Operation:   addBlock1,
+	}}
+	// Add some text to the block
+	inserts1 := CreateInsertsFromString("1Y!", "yas", block1ID, 2) // last opId is 4
+	opYas = append(opYas, inserts1...)
+
+	// Add another block with the text "Block2Y!"
+	block2ID := "5" + "@yas"
+	addBlock2 := types.CRDTAddBlock{
+		AfterBlock:  block1ID,
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		}}
+
+	opYas = append(opYas, types.CRDTOperation{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "yas",
+		OperationID: 5,
+		DocumentID:  "doc1",
+		BlockID:     block2ID,
+		Operation:   addBlock2,
+	})
+	inserts2 := CreateInsertsFromString("2Y!", "yas", block2ID, 6) // last opId is 8
+	opYas = append(opYas, inserts2...)
+
+	// Now we create the operations for Ugo
+	block3ID := "1" + "@ugo"
+	addBlock3 := types.CRDTAddBlock{
+		AfterBlock:  "",
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		}}
+
+	opUgo := []types.CRDTOperation{{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "ugo",
+		OperationID: 1,
+		DocumentID:  "doc1",
+		BlockID:     block3ID,
+		Operation:   addBlock3,
+	}}
+
+	inserts3 := CreateInsertsFromString("1U!", "ugo", block3ID, 2) // last opId is 4
+	opUgo = append(opUgo, inserts3...)
+
+	// Add another block with the text "2U!"
+	block4ID := "5" + "@ugo"
+	addBlock4 := types.CRDTAddBlock{
+		AfterBlock:  block3ID,
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		}}
+
+	opUgo = append(opUgo, types.CRDTOperation{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "ugo",
+		OperationID: 5,
+		DocumentID:  "doc1",
+		BlockID:     block4ID,
+		Operation:   addBlock4,
+	})
+	inserts4 := CreateInsertsFromString("2U!", "ugo", block4ID, 6) // last opId is 8
+	opUgo = append(opUgo, inserts4...)
+
+	// Now we apply the operations
+	err := peerYas.UpdateEditor(opYas)
+	require.NoError(t, err)
+	err = peerYas.UpdateEditor(opUgo)
+	require.NoError(t, err)
+	err = peerUgo.UpdateEditor(opUgo)
+	require.NoError(t, err)
+	err = peerUgo.UpdateEditor(opYas)
+	require.NoError(t, err)
+
+	// Compile the document
+	docYas, err := peerYas.CompileDocument("doc1")
+	require.NoError(t, err)
+	docUgo, err := peerUgo.CompileDocument("doc1")
+	require.NoError(t, err)
+
+	require.JSONEq(t, docYas, docUgo)
 }
 
 // Check that a document is stored in the correct directory.
