@@ -63,8 +63,8 @@ func (s *StyledText) ToJSON() string {
 	JSON := "{"
 	JSON += "\"type\": \"" + "text" + "\","
 	JSON += "\"charIds\": ["
-	for _, charId := range s.CharIDs {
-		JSON += "\"" + charId + "\","
+	for _, charID := range s.CharIDs {
+		JSON += "\"" + charID + "\","
 	}
 	JSON = JSON[:len(JSON)-1] // Remove the additional ","
 	JSON += "],"
@@ -90,18 +90,25 @@ func (b *ParagraphBlock) AddChildren(children []BlockType) {
 	b.Children = append(b.Children, children...)
 }
 
+const (
+	CHILDREN = "\"children\": [ "
+	CONTENT  = "\"content\": [ "
+	PROPS    = "\"props\" : {"
+)
+
 func (b *ParagraphBlock) ToJSON() string {
+
 	JSON := "{"
 	JSON += "\"id\": \"" + b.ID + "\","
 	JSON += "\"type\": \"" + "paragraph" + "\","
 	// Props
-	JSON += "\"props\" : {"
+	JSON += PROPS
 	JSON += "\"textColor\": \"" + b.Default.TextColor + "\","
 	JSON += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
 	JSON += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
 	JSON += "},"
 	// Content
-	JSON += "\"content\": [ "
+	JSON += CONTENT
 	for _, content := range b.Content {
 		if content != nil {
 			JSON += SerializeInlineContent(content) + ","
@@ -110,7 +117,7 @@ func (b *ParagraphBlock) ToJSON() string {
 	JSON = JSON[:len(JSON)-1] // Remove the additional ","
 	JSON += "],"
 	// Children
-	JSON += "\"children\": [ "
+	JSON += CHILDREN
 	for _, child := range b.Children {
 		JSON += SerializeBlock(child) + ","
 	}
@@ -127,21 +134,21 @@ func (b *HeadingBlock) ToJSON() string {
 	JSON += "\"id\": \"" + b.ID + "\","
 	JSON += "\"type\": \"" + "heading" + "\","
 	// Props
-	JSON += "\"props\" : {"
+	JSON += PROPS
 	JSON += "\"level\": " + strconv.Itoa(int(b.Level)) + ","
 	JSON += "\"textColor\": \"" + b.Default.TextColor + "\","
 	JSON += "\"backgroundColor\": \"" + b.Default.BackgroundColor + "\","
 	JSON += "\"textAlignment\": \"" + string(b.Default.TextAlignment) + "\""
 	JSON += "},"
 	// Content
-	JSON += "\"content\": [ "
+	JSON += CONTENT
 	for _, content := range b.Content {
 		JSON += SerializeInlineContent(content) + ","
 	}
 	JSON = JSON[:len(JSON)-1] // Remove the additional ","
 	JSON += "],"
 	// Children
-	JSON += "\"children\": [ "
+	JSON += CHILDREN
 	for _, child := range b.Children {
 		JSON += SerializeBlock(child) + ","
 	}
@@ -282,31 +289,31 @@ func addContentToBlock(content []CRDTInsertChar, style map[string]TextStyle) []I
 	// If the style is the same, we can group the characters together
 	var previousStyles TextStyle
 	var stringContent string
-	var charIds []string
+	var charIDs []string
 
 	for _, char := range content {
 		if !compareTextStyle(style[char.OpID], previousStyles) {
 			// If the style is different, we need to create a new InlineContent
 			if len(stringContent) > 0 {
 				styledTexts = append(styledTexts, StyledText{
-					CharIDs: charIds,
+					CharIDs: charIDs,
 					Text:    strings.Clone(stringContent),
 					Styles:  previousStyles,
 				})
 				// Reset the stringContent
 				stringContent = ""
-				charIds = nil
+				charIDs = nil
 			}
 		}
 		stringContent += string(char.Character)
-		charIds = append(charIds, char.OpID)
+		charIDs = append(charIDs, char.OpID)
 		previousStyles = style[char.OpID]
 	}
 
 	// We need to add the last block of text
 	if len(stringContent) > 0 {
 		styledTexts = append(styledTexts, StyledText{
-			CharIDs: charIds,
+			CharIDs: charIDs,
 			Text:    strings.Clone(stringContent),
 			Styles:  previousStyles,
 		})
@@ -314,7 +321,8 @@ func addContentToBlock(content []CRDTInsertChar, style map[string]TextStyle) []I
 
 	var inlineContents = make([]InlineContent, len(styledTexts))
 	for i, styledText := range styledTexts {
-		inlineContents[i] = &styledText
+		styledTextCopy := styledText
+		inlineContents[i] = &styledTextCopy
 	}
 
 	return inlineContents

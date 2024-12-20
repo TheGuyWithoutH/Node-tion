@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
-
-	"golang.org/x/xerrors"
 )
 
 func (n *node) createBlockContent(ops []types.CRDTOperation) []types.InlineContent {
@@ -22,88 +20,134 @@ func (n *node) createBlockContent(ops []types.CRDTOperation) []types.InlineConte
 	n.logCRDT.Debug().Msgf("ops %v", ops)
 
 	for _, op := range ops {
-		opID, err := ReconstructOpID(op.OperationID, op.Origin)
-		if err != nil {
-			n.logCRDT.Error().Msgf("failed to convert operationID to string: %v", err)
-		}
-		n.logCRDT.Debug().Msgf("Operation %v", op.Type)
-		switch op.Type {
-		case types.CRDTInsertCharType:
-			insertOp, ok := op.Operation.(types.CRDTInsertChar)
-			if !ok {
-				n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar")
-			}
-			// Insert the character into the text after the AfterID
-			afterID := insertOp.AfterID
-
-			var lastAfterID string
-			if len(charIDs) > 0 {
-				lastAfterID = charIDs[len(charIDs)-1]
-			}
-			if afterID != lastAfterID {
-				// Get the position index of afterID in charIDs
-				pos := n.getIDIndex(afterID, charIDs)
-				if pos == -1 {
-					n.logCRDT.Error().Msgf("failed to find afterID in charIDs")
-				}
-				// Insert the character at the position
-				charIDs = append(charIDs[:pos+1], append([]string{opID}, charIDs[pos+1:]...)...)
-				text = text[:pos+1] + insertOp.Character + text[pos+1:]
-			} else {
-				// Add the character to the end of the text
-				n.logCRDT.Debug().Msgf("Inserting character %s", insertOp.Character)
-				text += insertOp.Character
-				charIDs = append(charIDs, opID)
-			}
-			n.logCRDT.Debug().Msgf("charIDs %v", charIDs)
-			n.logCRDT.Debug().Msgf("text %s", text)
-
-		case types.CRDTDeleteCharType:
-			deleteOp, ok := op.Operation.(types.CRDTDeleteChar)
-			if !ok {
-				n.logCRDT.Error().Msgf("failed to cast operation to CRDTDeleteChar")
-			}
-			removedIDs = append(removedIDs, deleteOp.RemovedID)
-
-		case types.CRDTAddMarkType:
-			op, ok := op.Operation.(types.CRDTAddMark)
-			if !ok {
-				n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddMark")
-			}
-			startID := op.Start.OpID
-			endID := op.End.OpID
-			n.applyAddMark(textStyles, charIDs, startID, endID, op)
-
-		case types.CRDTRemoveMarkType:
-			op, ok := op.Operation.(types.CRDTRemoveMark)
-			if !ok {
-				n.logCRDT.Error().Msgf("failed to cast operation to CRDTRemoveMark")
-			}
-			startID := op.Start.OpID
-			endID := op.End.OpID
-			n.applyRemoveMark(textStyles, charIDs, startID, endID, op)
+		if err := n.processOperation(op, &text, &textStyles, &charIDs, &removedIDs); err != nil {
+			n.logCRDT.Error().Msgf("Error processing operation: %v", err)
 		}
 	}
 
-	// Removes the characters that are marked for deletion
-	for _, removedID := range removedIDs {
-		pos := n.getIDIndex(removedID, charIDs)
-		if pos == -1 {
-			n.logCRDT.Error().Msgf("failed to find removedID in charIDs")
-		}
-		charIDs = append(charIDs[:pos], charIDs[pos+1:]...)
-		text = text[:pos] + text[pos+1:]
-	}
+	n.removeDeletedCharacters(&text, &charIDs, removedIDs)
 
 	return n.generateInlineContent(text, textStyles, charIDs)
 }
 
-func (n *node) generateInlineContent(text string, textStyles map[string]types.TextStyle, charIDs []string) []types.InlineContent {
+func (n *node) processOperation(
+	op types.CRDTOperation,
+	text *string,
+	textStyles *map[string]types.TextStyle,
+	charIDs *[]string,
+	removedIDs *[]string,
+) error {
+	opID, err := ReconstructOpID(op.OperationID, op.Origin)
+	if err != nil {
+		return fmt.Errorf("failed to convert operationID to string: %w", err)
+	}
+
+	switch op.Type {
+	case types.CRDTInsertCharType:
+		return n.processInsertChar(op, opID, text, charIDs)
+	case types.CRDTDeleteCharType:
+		return n.processDeleteChar(op, removedIDs)
+	case types.CRDTAddMarkType:
+		return n.processAddMark(op, textStyles, *charIDs)
+	case types.CRDTRemoveMarkType:
+		return n.processRemoveMark(op, textStyles, *charIDs)
+	default:
+		return fmt.Errorf("unknown operation type: %v", op.Type)
+	}
+}
+
+func (n *node) processInsertChar(
+	op types.CRDTOperation,
+	opID string,
+	text *string,
+	charIDs *[]string,
+) error {
+	insertOp, ok := op.Operation.(types.CRDTInsertChar)
+	if !ok {
+		return fmt.Errorf("failed to cast operation to CRDTInsertChar")
+	}
+
+	afterID := insertOp.AfterID
+	lastAfterID := ""
+	if len(*charIDs) > 0 {
+		lastAfterID = (*charIDs)[len(*charIDs)-1]
+	}
+
+	if afterID != lastAfterID {
+		pos := n.getIDIndex(afterID, *charIDs)
+		if pos == -1 {
+			return fmt.Errorf("failed to find afterID in charIDs")
+		}
+		*charIDs = append((*charIDs)[:pos+1], append([]string{opID}, (*charIDs)[pos+1:]...)...)
+		*text = (*text)[:pos+1] + insertOp.Character + (*text)[pos+1:]
+	} else {
+		*text += insertOp.Character
+		*charIDs = append(*charIDs, opID)
+	}
+
+	return nil
+}
+
+func (n *node) processDeleteChar(op types.CRDTOperation, removedIDs *[]string) error {
+	deleteOp, ok := op.Operation.(types.CRDTDeleteChar)
+	if !ok {
+		return fmt.Errorf("failed to cast operation to CRDTDeleteChar")
+	}
+	*removedIDs = append(*removedIDs, deleteOp.RemovedID)
+	return nil
+}
+
+func (n *node) processAddMark(
+	op types.CRDTOperation,
+	textStyles *map[string]types.TextStyle,
+	charIDs []string,
+) error {
+	addMarkOp, ok := op.Operation.(types.CRDTAddMark)
+	if !ok {
+		return fmt.Errorf("failed to cast operation to CRDTAddMark")
+	}
+	n.applyAddMark(*textStyles, charIDs, addMarkOp.Start.OpID, addMarkOp.End.OpID, addMarkOp)
+	return nil
+}
+
+func (n *node) processRemoveMark(
+	op types.CRDTOperation,
+	textStyles *map[string]types.TextStyle,
+	charIDs []string,
+) error {
+	removeMarkOp, ok := op.Operation.(types.CRDTRemoveMark)
+	if !ok {
+		return fmt.Errorf("failed to cast operation to CRDTRemoveMark")
+	}
+	n.applyRemoveMark(*textStyles, charIDs, removeMarkOp.Start.OpID, removeMarkOp.End.OpID, removeMarkOp)
+	return nil
+}
+
+func (n *node) removeDeletedCharacters(
+	text *string,
+	charIDs *[]string,
+	removedIDs []string,
+) {
+	for _, removedID := range removedIDs {
+		pos := n.getIDIndex(removedID, *charIDs)
+		if pos == -1 {
+			n.logCRDT.Error().Msgf("failed to find removedID in charIDs")
+			continue
+		}
+		*charIDs = append((*charIDs)[:pos], (*charIDs)[pos+1:]...)
+		*text = (*text)[:pos] + (*text)[pos+1:]
+	}
+}
+
+func (n *node) generateInlineContent(text string,
+	textStyles map[string]types.TextStyle,
+	charIDs []string,
+) []types.InlineContent {
 	var styledTexts []types.StyledText
 	// If the style is the same, we can group the characters together
 	var previousStyles types.TextStyle
 	var tmpStringContent string
-	var tmpCharIds []string
+	var tmpCharIDs []string
 
 	n.logCRDT.Debug().Msgf("charIDs %v", charIDs)
 	n.logCRDT.Debug().Msgf("textStyles %v", textStyles)
@@ -114,24 +158,24 @@ func (n *node) generateInlineContent(text string, textStyles map[string]types.Te
 			// If the style is different, we need to create a new InlineContent
 			if len(tmpStringContent) > 0 {
 				styledTexts = append(styledTexts, types.StyledText{
-					CharIDs: tmpCharIds,
+					CharIDs: tmpCharIDs,
 					Text:    tmpStringContent,
 					Styles:  previousStyles,
 				})
 				// Reset the stringContent
 				tmpStringContent = ""
-				tmpCharIds = nil
+				tmpCharIDs = nil
 			}
 		}
 		tmpStringContent += string(text[n.getIDIndex(charID, charIDs)])
-		tmpCharIds = append(tmpCharIds, charID)
+		tmpCharIDs = append(tmpCharIDs, charID)
 		previousStyles = textStyles[charID]
 	}
 
 	// We need to add the last block of text
 	if len(tmpStringContent) > 0 {
 		styledTexts = append(styledTexts, types.StyledText{
-			CharIDs: tmpCharIds,
+			CharIDs: tmpCharIDs,
 			Text:    tmpStringContent,
 			Styles:  previousStyles,
 		})
@@ -141,13 +185,13 @@ func (n *node) generateInlineContent(text string, textStyles map[string]types.Te
 	n.logCRDT.Debug().Msgf("Length styledTexts %v", styledTexts)
 	for i, styledText := range styledTexts {
 		n.logCRDT.Debug().Msgf("styledText %v", styledText)
-		inlineContents[i] = &styledText
+		cp := styledText
+		inlineContents[i] = &cp
 	}
 
 	return inlineContents
 }
 
-// TODO : Add it as a function of the TextStyle struct
 func compareTextStyle(a types.TextStyle, b types.TextStyle) bool {
 	if a.Bold != b.Bold || a.Italic != b.Italic || a.Underline != b.Underline ||
 		a.Strikethrough != b.Strikethrough || a.TextColor != b.TextColor ||
@@ -169,7 +213,12 @@ func (n *node) getIDIndex(ID string, charIDs []string) int {
 	return pos
 }
 
-func (n *node) applyAddMark(textStyles map[string]types.TextStyle, charIDs []string, startID, endID string, op types.CRDTAddMark) {
+func (n *node) applyAddMark(textStyles map[string]types.TextStyle,
+	charIDs []string,
+	startID,
+	endID string,
+	op types.CRDTAddMark,
+) {
 
 	startFound := false
 	for _, charID := range charIDs {
@@ -185,7 +234,12 @@ func (n *node) applyAddMark(textStyles map[string]types.TextStyle, charIDs []str
 	}
 }
 
-func (n *node) applyRemoveMark(textStyles map[string]types.TextStyle, charIDs []string, startID, endID string, op types.CRDTRemoveMark) {
+func (n *node) applyRemoveMark(textStyles map[string]types.TextStyle,
+	charIDs []string,
+	startID,
+	endID string,
+	op types.CRDTRemoveMark,
+) {
 
 	startFound := false
 	for _, charID := range charIDs {
@@ -215,124 +269,150 @@ func (n *node) sortOps(ops []types.CRDTOperation) []types.CRDTOperation {
 
 }
 func (n *node) CompileDocument(docID string) (string, error) {
-	document := make([]types.BlockFactory, 0)
-
 	// Step 1: Populate document blocks in order
+	document, err := n.populateDocumentBlocks(docID)
+	if err != nil {
+		return "", fmt.Errorf("failed to populate document blocks: %w", err)
+	}
+
+	// Step 2: Populate block content for each block
+	finalDocument := n.populateBlockContent(docID, document)
+
+	// Step 3: Serialize the document
+	return n.serializeDocument(finalDocument), nil
+}
+
+func (n *node) populateDocumentBlocks(docID string) ([]types.BlockFactory, error) {
+	document := make([]types.BlockFactory, 0)
 	blockChangeOperations := n.GetDocumentOps(docID)[docID]
 	blockChangeOperations = n.sortOps(blockChangeOperations)
 
 	for _, blockChangeOp := range blockChangeOperations {
-		// Determine the type of operation
+		var err error
 		switch blockChangeOp.Type {
 		case types.CRDTAddBlockType:
-			addBlockOp, ok := blockChangeOp.Operation.(types.CRDTAddBlock)
-			if !ok {
-				return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
-			}
-			addBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
-
-			// Add the block to the document in the correct spot
-			added := false
-			if len(document) == 0 {
-				// If the document is empty, add the block to the beginning
-				newBlock := types.BlockFactory{
-					ID:        addBlockOp.OpID,
-					BlockType: addBlockOp.BlockType,
-					Props:     addBlockOp.Props,
-					Children:  nil,
-				}
-				document = append(document, newBlock)
-			} else {
-				for i := range document {
-					added, document = n.checkAddBlockAtPosition(document, i, addBlockOp)
-					if added {
-						break
-					}
-				}
-			}
+			err = n.handleAddBlock(&document, blockChangeOp)
 		case types.CRDTRemoveBlockType:
-			removeBlockOp, ok := blockChangeOp.Operation.(types.CRDTRemoveBlock)
-			if !ok {
-				return "", xerrors.Errorf("failed to cast operation to CRDTRemoveBlock")
-			}
-			removeBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
-
-			// Remove the block from the document
-			removed := false
-			for i := range document {
-				removed, document = checkRemoveBlockAtPosition(document, i, removeBlockOp)
-				if removed {
-					break
-				}
-			}
+			err = n.handleRemoveBlock(&document, blockChangeOp)
 		case types.CRDTUpdateBlockType:
-			updateBlockOp, ok := blockChangeOp.Operation.(types.CRDTUpdateBlock)
-			if !ok {
-				return "", xerrors.Errorf("failed to cast operation to CRDTUpdateBlock")
-			}
-			updateBlockOp.UpdatedBlock = blockChangeOp.BlockID
-
-			// Find the block to update and remove it for now (as it can change position)
-			oldBlock := &types.BlockFactory{}
-			for i := range document {
-				oldBlock, document = n.findBlockToUpdateAndRemove(document, i, updateBlockOp)
-				if oldBlock != nil {
-					break
-				}
-			}
-
-			// Update the block properties
-			if oldBlock != nil {
-				updatedBlock := &types.BlockFactory{
-					ID:        oldBlock.ID,
-					BlockType: updateBlockOp.BlockType, // We assume that the block type is always updated
-					Props:     n.updateBlockProps(oldBlock.Props, updateBlockOp.Props),
-					Children:  oldBlock.Children,
-				}
-
-				added := false
-
-				// Add the block back to the document
-				for i := range document {
-					added, document = n.checkAddBackBlockAtPosition(document, i, updateBlockOp, *updatedBlock)
-					if added {
-						break
-					}
-				}
-			}
+			err = n.handleUpdateBlock(&document, blockChangeOp)
+		default:
+			return nil, fmt.Errorf("unknown operation type: %v", blockChangeOp.Type)
+		}
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	// Step 2: Populate block content for each block in the document
-	finalDocument := make([]types.BlockType, 0)
+	return document, nil
+}
 
+func (n *node) handleAddBlock(document *[]types.BlockFactory, blockChangeOp types.CRDTOperation) error {
+	addBlockOp, ok := blockChangeOp.Operation.(types.CRDTAddBlock)
+	if !ok {
+		return fmt.Errorf("failed to cast operation to CRDTAddBlock")
+	}
+	addBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
+
+	if len(*document) == 0 {
+		*document = append(*document, types.BlockFactory{
+			ID:        addBlockOp.OpID,
+			BlockType: addBlockOp.BlockType,
+			Props:     addBlockOp.Props,
+		})
+		return nil
+	}
+
+	for i := range *document {
+		added, newDocument := n.checkAddBlockAtPosition(*document, i, addBlockOp)
+		if added {
+			*document = newDocument
+			break
+		}
+	}
+	return nil
+}
+
+func (n *node) handleRemoveBlock(document *[]types.BlockFactory, blockChangeOp types.CRDTOperation) error {
+	removeBlockOp, ok := blockChangeOp.Operation.(types.CRDTRemoveBlock)
+	if !ok {
+		return fmt.Errorf("failed to cast operation to CRDTRemoveBlock")
+	}
+	removeBlockOp.OpID = fmt.Sprintf("%d@%s", blockChangeOp.OperationID, blockChangeOp.Origin)
+
+	for i := range *document {
+		removed, newDocument := checkRemoveBlockAtPosition(*document, i, removeBlockOp)
+		if removed {
+			*document = newDocument
+			break
+		}
+	}
+	return nil
+}
+
+func (n *node) handleUpdateBlock(document *[]types.BlockFactory, blockChangeOp types.CRDTOperation) error {
+	updateBlockOp, ok := blockChangeOp.Operation.(types.CRDTUpdateBlock)
+	if !ok {
+		return fmt.Errorf("failed to cast operation to CRDTUpdateBlock")
+	}
+	updateBlockOp.UpdatedBlock = blockChangeOp.BlockID
+
+	var oldBlock *types.BlockFactory
+	for i := range *document {
+		oldBlock, *document = n.findBlockToUpdateAndRemove(*document, i, updateBlockOp)
+		if oldBlock != nil {
+			break
+		}
+	}
+
+	if oldBlock != nil {
+		updatedBlock := &types.BlockFactory{
+			ID:        oldBlock.ID,
+			BlockType: updateBlockOp.BlockType,
+			Props:     n.updateBlockProps(oldBlock.Props, updateBlockOp.Props),
+			Children:  oldBlock.Children,
+		}
+
+		for i := range *document {
+			added, newDocument := n.checkAddBackBlockAtPosition(*document, i, updateBlockOp, *updatedBlock)
+			if added {
+				*document = newDocument
+				break
+			}
+		}
+	}
+	return nil
+}
+
+func (n *node) populateBlockContent(docID string, document []types.BlockFactory) []types.BlockType {
+	finalDocument := make([]types.BlockType, 0)
 	for _, block := range document {
-		// Skip deleted blocks
 		if block.Deleted {
 			continue
 		}
-		// Create the block
 		blockOperations := n.GetBlockOps(docID, block.ID)
 		newBlock := n.createBlock(docID, block, blockOperations)
 		finalDocument = append(finalDocument, newBlock)
 	}
+	return finalDocument
+}
 
-	// Step 3: Serialize the document
-	// Now that we have the final document, we can convert it to a JSON string
+func (n *node) serializeDocument(finalDocument []types.BlockType) string {
 	finalJSON := "[ "
-
-	// Serialize the document
 	for _, block := range finalDocument {
 		finalJSON += types.SerializeBlock(block) + ","
 	}
-
-	finalJSON = finalJSON[:len(finalJSON)-1] // Remove the additional ","
+	if len(finalJSON) > 2 {
+		finalJSON = finalJSON[:len(finalJSON)-1] // Remove the additional ","
+	}
 	finalJSON += "]"
-
-	return finalJSON, nil
+	return finalJSON
 }
 
-func (n *node) createBlock(docID string, block types.BlockFactory, blockOperations []types.CRDTOperation) types.BlockType {
+func (n *node) createBlock(docID string,
+	block types.BlockFactory,
+	blockOperations []types.CRDTOperation,
+) types.BlockType {
 	// Create the children blocks if applicable
 	var childrenBlocks []types.BlockType
 
@@ -410,84 +490,126 @@ func (n *node) createBlock(docID string, block types.BlockFactory, blockOperatio
 
 // checkAddBlockAtPosition checks if the addBlockOp should be added to the document at the current index
 // Returns true if the block was added, false otherwise
-func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int, addBlockOp types.CRDTAddBlock) (bool, []types.BlockFactory) {
+func (n *node) checkAddBlockAtPosition(document []types.BlockFactory,
+	index int,
+	addBlockOp types.CRDTAddBlock,
+) (bool, []types.BlockFactory) {
 	added := false
 
-	// Check if the block is a child block
-	if addBlockOp.ParentBlock != "" && addBlockOp.ParentBlock == document[index].ID {
-		// Check if the block has no children yet
-		if document[index].Children == nil {
-			document[index].Children = make([]types.BlockFactory, 0)
-
-			newBlock := types.BlockFactory{
-				ID:        addBlockOp.OpID,
-				BlockType: addBlockOp.BlockType,
-				Props:     addBlockOp.Props,
-				Children:  nil,
-			}
-			document[index].Children = append(document[index].Children, newBlock)
-			added = true
-		} else if addBlockOp.AfterBlock == "" {
-			// Add the block to the start of the children
-			newBlock := types.BlockFactory{
-				ID:        addBlockOp.OpID,
-				BlockType: addBlockOp.BlockType,
-				Props:     addBlockOp.Props,
-				Children:  nil,
-			}
-			document[index].Children = append([]types.BlockFactory{newBlock}, document[index].Children...)
-			added = true
-		} else {
-			// Check where to add the block in the children
-			for i := range document[index].Children {
-				added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
-				if added {
-					break
-				}
-			}
+	// If the current block is the parent
+	if isParentBlock(document, index, addBlockOp.ParentBlock) {
+		added, document = n.handleParentBlockInsertion(document, index, addBlockOp)
+		if added {
+			return added, document
 		}
 	}
 
-	// Check if the block is going at the start of the document
-	if !added && (addBlockOp.AfterBlock == "" && addBlockOp.ParentBlock == "") {
-		newBlock := types.BlockFactory{
-			ID:        addBlockOp.OpID,
-			BlockType: addBlockOp.BlockType,
-			Props:     addBlockOp.Props,
-			Children:  nil,
-		}
-		document = append([]types.BlockFactory{newBlock}, document...)
-		added = true
-	} else if !added && (document[index].ID == addBlockOp.AfterBlock) {
-		// Check if the block is going after the current block
-		newBlock := types.BlockFactory{
-			ID:        addBlockOp.OpID,
-			BlockType: addBlockOp.BlockType,
-			Props:     addBlockOp.Props,
-			Children:  nil,
-		}
-		document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
-		added = true
-	} else if !added {
-		if document[index].Children != nil {
-			for i := range document[index].Children {
-				// Recursively check the children blocks
-				added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
-				if added {
-					break
-				}
-			}
+	// If we need to add the block at the start of the document
+	if !added && addBlockOp.ParentBlock == "" && addBlockOp.AfterBlock == "" {
+		newDoc := insertBlockAtStart(document, addBlockOp)
+		n.logBlockAdded(addBlockOp.OpID, newDoc)
+		return true, newDoc
+	}
+
+	// If we need to add the block after the current block
+	if !added && document[index].ID == addBlockOp.AfterBlock {
+		newDoc := insertBlockAfterBlock(document, index, addBlockOp)
+		n.logBlockAdded(addBlockOp.OpID, newDoc)
+		return true, newDoc
+	}
+
+	// If not added yet, try adding within children (recursively)
+	if !added && document[index].Children != nil {
+		added, newChildren := n.insertBlockInChildren(document[index].Children, addBlockOp)
+		document[index].Children = newChildren
+		if added {
+			n.logBlockAdded(addBlockOp.OpID, document)
+			return true, document
 		}
 	}
 
-	n.logCRDT.Debug().Msgf("block %s added to finalDoc in CheckAddBlockPos", addBlockOp.OpID)
-	n.logCRDT.Debug().Msgf("document %v", document)
+	n.logBlockAdded(addBlockOp.OpID, document)
 	return added, document
+}
+
+// -------------------- Helper Functions --------------------
+
+func isParentBlock(document []types.BlockFactory, index int, parentBlockID string) bool {
+	return parentBlockID != "" && document[index].ID == parentBlockID
+}
+
+func (n *node) handleParentBlockInsertion(document []types.BlockFactory,
+	index int,
+	addBlockOp types.CRDTAddBlock,
+) (bool, []types.BlockFactory) {
+	// If no children, initialize and append
+	if document[index].Children == nil {
+		document[index].Children = []types.BlockFactory{}
+		newBlock := buildNewBlock(addBlockOp)
+		document[index].Children = append(document[index].Children, newBlock)
+		return true, document
+	}
+
+	// If we need to add at the start of children
+	if addBlockOp.AfterBlock == "" {
+		newBlock := buildNewBlock(addBlockOp)
+		document[index].Children = append([]types.BlockFactory{newBlock}, document[index].Children...)
+		return true, document
+	}
+
+	// Otherwise, try inserting at the appropriate position in children
+	added, newChildren := n.insertBlockInChildren(document[index].Children, addBlockOp)
+	document[index].Children = newChildren
+	return added, document
+}
+
+func (n *node) insertBlockInChildren(children []types.BlockFactory,
+	addBlockOp types.CRDTAddBlock,
+) (bool, []types.BlockFactory) {
+	for i := range children {
+		added, newChildren := n.checkAddBlockAtPosition(children, i, addBlockOp)
+		if added {
+			return true, newChildren
+		}
+	}
+	return false, children
+}
+
+func insertBlockAtStart(document []types.BlockFactory,
+	addBlockOp types.CRDTAddBlock,
+) []types.BlockFactory {
+	newBlock := buildNewBlock(addBlockOp)
+	return append([]types.BlockFactory{newBlock}, document...)
+}
+
+func insertBlockAfterBlock(document []types.BlockFactory,
+	index int,
+	addBlockOp types.CRDTAddBlock,
+) []types.BlockFactory {
+	newBlock := buildNewBlock(addBlockOp)
+	return append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
+}
+
+func buildNewBlock(addBlockOp types.CRDTAddBlock) types.BlockFactory {
+	return types.BlockFactory{
+		ID:        addBlockOp.OpID,
+		BlockType: addBlockOp.BlockType,
+		Props:     addBlockOp.Props,
+		Children:  nil,
+	}
+}
+
+func (n *node) logBlockAdded(opID string, document []types.BlockFactory) {
+	n.logCRDT.Debug().Msgf("block %s added to finalDoc in CheckAddBlockPos", opID)
+	n.logCRDT.Debug().Msgf("document %v", document)
 }
 
 // checkRemoveBlockAtPosition checks if the removeBlockOp should be removed from the document at the current index
 // Returns true if the block was removed, false otherwise
-func checkRemoveBlockAtPosition(document []types.BlockFactory, index int, removeBlockOp types.CRDTRemoveBlock) (bool, []types.BlockFactory) {
+func checkRemoveBlockAtPosition(document []types.BlockFactory,
+	index int,
+	removeBlockOp types.CRDTRemoveBlock,
+) (bool, []types.BlockFactory) {
 	removed := false
 
 	// Check if the block is going after the current block
@@ -506,8 +628,11 @@ func checkRemoveBlockAtPosition(document []types.BlockFactory, index int, remove
 	return removed, document
 }
 
-func (n *node) findBlockToUpdateAndRemove(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock) (*types.BlockFactory, []types.BlockFactory) {
-	var updated *types.BlockFactory = nil
+func (n *node) findBlockToUpdateAndRemove(document []types.BlockFactory,
+	index int,
+	updateBlockOp types.CRDTUpdateBlock,
+) (*types.BlockFactory, []types.BlockFactory) {
+	var updated *types.BlockFactory
 
 	// Check if the block is going after the current block
 	if document[index].ID == updateBlockOp.UpdatedBlock {
@@ -534,55 +659,100 @@ func (n *node) findBlockToUpdateAndRemove(document []types.BlockFactory, index i
 
 // checkAddBlockAtPosition checks if the addBlockOp should be added to the document at the current index
 // Returns true if the block was added, false otherwise
-func (n *node) checkAddBackBlockAtPosition(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock, updatedBlock types.BlockFactory) (bool, []types.BlockFactory) {
+func (n *node) checkAddBackBlockAtPosition(
+	document []types.BlockFactory,
+	index int,
+	updateBlockOp types.CRDTUpdateBlock,
+	updatedBlock types.BlockFactory,
+) (bool, []types.BlockFactory) {
 	added := false
 
-	// Check if the block is a child block
-	if updateBlockOp.ParentBlock != "" && updateBlockOp.ParentBlock == document[index].ID {
-		// Check if the block has no children yet
-		if document[index].Children == nil {
-			document[index].Children = make([]types.BlockFactory, 0)
-			document[index].Children = append(document[index].Children, updatedBlock)
-			added = true
-		} else if updateBlockOp.AfterBlock == "" {
-			// Add the block to the start of the children
-			document[index].Children = append([]types.BlockFactory{updatedBlock}, document[index].Children...)
-			added = true
-		} else {
-			// Check where to add the block in the children
-			for i := range document[index].Children {
-				added, document[index].Children = n.checkAddBackBlockAtPosition(document[index].Children, i, updateBlockOp, updatedBlock)
-				if added {
-					break
-				}
-			}
+	// If current block is the parent
+	if isParentBlock(document, index, updateBlockOp.ParentBlock) {
+		added, document = n.handleParentBackBlockInsertion(document, index, updateBlockOp, updatedBlock)
+		if added {
+			return added, document
 		}
 	}
 
-	// Check if the block is going at the start of the document
-	if !added && (updateBlockOp.AfterBlock == "" && updateBlockOp.ParentBlock == "") {
-		document = append([]types.BlockFactory{updatedBlock}, document...)
-		added = true
-	} else if !added && (document[index].ID == updateBlockOp.AfterBlock) {
-		// Check if the block is going after the current block
-		document = append(document[:index+1], append([]types.BlockFactory{updatedBlock}, document[index+1:]...)...)
-		added = true
-	} else if !added {
-		if document[index].Children != nil {
-			for i := range document[index].Children {
-				// Recursively check the children blocks
-				added, document[index].Children = n.checkAddBackBlockAtPosition(document[index].Children, i, updateBlockOp, updatedBlock)
-				if added {
-					break
-				}
-			}
+	// Try inserting at the start of the document
+	if !added && updateBlockOp.ParentBlock == "" && updateBlockOp.AfterBlock == "" {
+		newDoc := insertBlockAtDocumentStart(document, updatedBlock)
+		return true, newDoc
+	}
+
+	// Try inserting after an existing block
+	if !added && document[index].ID == updateBlockOp.AfterBlock {
+		newDoc := insertBlockAfterExistingBlock(document, index, updatedBlock)
+		return true, newDoc
+	}
+
+	// If not added yet, attempt insertion in children
+	if !added && document[index].Children != nil {
+		added, newChildren := n.tryInsertInChildren(document[index].Children, updateBlockOp, updatedBlock)
+		document[index].Children = newChildren
+		if added {
+			return true, document
 		}
 	}
 
 	return added, document
 }
 
-func (n *node) updateBlockProps(blockProps types.DefaultBlockProps, updatedProps types.DefaultBlockProps) types.DefaultBlockProps {
+// -------------------- Helper Functions --------------------
+
+func (n *node) handleParentBackBlockInsertion(
+	document []types.BlockFactory,
+	index int,
+	updateBlockOp types.CRDTUpdateBlock,
+	updatedBlock types.BlockFactory,
+) (bool, []types.BlockFactory) {
+	if document[index].Children == nil {
+		// Initialize children and add the new block
+		document[index].Children = []types.BlockFactory{updatedBlock}
+		return true, document
+	}
+
+	// Insert at the start of the children if AfterBlock is not specified
+	if updateBlockOp.AfterBlock == "" {
+		document[index].Children = append([]types.BlockFactory{updatedBlock}, document[index].Children...)
+		return true, document
+	}
+
+	// Otherwise, try to insert in the appropriate child position
+	added, newChildren := n.tryInsertInChildren(document[index].Children, updateBlockOp, updatedBlock)
+	document[index].Children = newChildren
+	return added, document
+}
+
+func insertBlockAtDocumentStart(document []types.BlockFactory, updatedBlock types.BlockFactory) []types.BlockFactory {
+	return append([]types.BlockFactory{updatedBlock}, document...)
+}
+
+func insertBlockAfterExistingBlock(document []types.BlockFactory,
+	index int,
+	updatedBlock types.BlockFactory,
+) []types.BlockFactory {
+	return append(document[:index+1], append([]types.BlockFactory{updatedBlock}, document[index+1:]...)...)
+}
+
+func (n *node) tryInsertInChildren(
+	children []types.BlockFactory,
+	updateBlockOp types.CRDTUpdateBlock,
+	updatedBlock types.BlockFactory,
+) (bool, []types.BlockFactory) {
+	for i := range children {
+		added, newChildren := n.checkAddBackBlockAtPosition(children, i, updateBlockOp, updatedBlock)
+		if added {
+			return true, newChildren
+		}
+	}
+	return false, children
+}
+
+func (n *node) updateBlockProps(blockProps types.DefaultBlockProps,
+	updatedProps types.DefaultBlockProps,
+) types.DefaultBlockProps {
 
 	if updatedProps.Level != 0 {
 		blockProps.Level = updatedProps.Level
@@ -598,22 +768,6 @@ func (n *node) updateBlockProps(blockProps types.DefaultBlockProps, updatedProps
 	}
 
 	return blockProps
-}
-
-func (n *node) updateBlock(blockOp types.CRDTAddBlock, updatedBlock *types.CRDTUpdateBlock) types.CRDTAddBlock {
-	if updatedBlock != nil {
-		blockOp.Props = n.updateBlockProps(blockOp.Props, updatedBlock.Props)
-		if updatedBlock.BlockType != "" {
-			blockOp.BlockType = updatedBlock.BlockType
-		}
-		if updatedBlock.AfterBlock != "" {
-			blockOp.AfterBlock = updatedBlock.AfterBlock
-		}
-		if updatedBlock.ParentBlock != "" {
-			blockOp.ParentBlock = updatedBlock.ParentBlock
-		}
-	}
-	return blockOp
 }
 
 func (n *node) addMark2TextStyle(textStyle types.TextStyle, toAdd types.CRDTAddMark) types.TextStyle {

@@ -765,9 +765,6 @@ func (n *node) GetBlockOps(docID, blockID string) []types.CRDTOperation {
 
 	block := make([]types.CRDTOperation, len(n.editor.ed[docID][blockID]))
 	copy(block, n.editor.ed[docID][blockID])
-	n.logCRDT.Debug().Msgf("GetBlockOps: editor doc %s, blockID %s: %d operations", docID, blockID, len(n.editor.ed[docID][blockID]))
-
-	n.logCRDT.Debug().Msgf("GetBlockOps: %d operations", len(block))
 
 	return block
 }
@@ -849,6 +846,8 @@ func (n *node) CastAndSetProps(blockType types.BlockTypeName, props interface{})
 		var numberedListBlock types.NumberedListBlock
 		err = json.Unmarshal(byteProps, &numberedListBlock)
 		return &numberedListBlock, err
+	case types.ImageBlockType, types.TableBlockType:
+		panic("Not implemented")
 	default:
 		return nil, fmt.Errorf("unknown block type")
 	}
@@ -873,21 +872,6 @@ func dereferenceIfOpPointer(op types.CRDTOp) types.CRDTOp {
 		return *v
 	default:
 		return op
-	}
-}
-
-func dereferenceIfPropsPointer(props interface{}) interface{} {
-	switch v := props.(type) {
-	case *types.ParagraphBlock:
-		return *v
-	case *types.HeadingBlock:
-		return *v
-	case *types.BulletedListBlock:
-		return *v
-	case *types.NumberedListBlock:
-		return *v
-	default:
-		return props
 	}
 }
 
