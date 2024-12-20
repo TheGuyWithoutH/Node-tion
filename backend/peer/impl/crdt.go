@@ -410,12 +410,33 @@ func (n *node) CompileDocument(docID string) (string, error) {
 				return "", xerrors.Errorf("failed to cast operation to CRDTUpdateBlock")
 			}
 
-			updated := false
+			// Find the block to update and remove it for now (as it can change position)
 			updatedBlock := &types.BlockFactory{}
-
-			// Update the block in the document
 			for i := range document {
-				updated, updatedBlock, document = n.checkUpdateBlockAtPosition(document, i, updateBlockOp, updated, updatedBlock)
+				updatedBlock, document = n.findBlockToUpdateAndRemove(document, i, updateBlockOp)
+				if updatedBlock != nil {
+					break
+				}
+			}
+
+			// Update the block properties
+			if updatedBlock != nil {
+				updatedBlock = &types.BlockFactory{
+					ID:       updatedBlock.ID,
+					BlockType: updateBlockOp.BlockType, // We assume that the block type is always updated
+					Props:    n.updateBlockProps(updatedBlock.Props, updateBlockOp.Props),
+					Children: updatedBlock.Children,
+				}
+
+				added := false
+
+				// Add the block back to the document
+				for i := range document {
+					added, document = n.checkAddBackBlockAtPosition(document, i, updateBlockOp, *updatedBlock)
+					if added {
+						break
+					}
+				}
 			}
 		}
 	}
@@ -626,89 +647,78 @@ func checkRemoveBlockAtPosition(document []types.BlockFactory, index int, remove
 	return removed, document
 }
 
-// checkUpdateBlockAtPosition checks if the updateBlockOp should be updated in the document at the current index
-// Returns true if the block was updated, false otherwise
-// Also returns the updated block reference
-func (n *node) checkUpdateBlockAtPosition(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock, updated bool, updatedBlock *types.BlockFactory) (bool, *types.BlockFactory, []types.BlockFactory) {
-	if updated {
-		if document[index].ID == updateBlockOp.UpdatedBlock {
-			// Apply previous children to the updated block and merge the props
-			updatedBlock.Children = document[index].Children
-			updatedBlock.Props = n.updateBlockProps(document[index].Props, updateBlockOp.Props)
+func (n *node) findBlockToUpdateAndRemove(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock) (*types.BlockFactory, []types.BlockFactory) {
+	var updated *types.BlockFactory = nil
 
-			// Delete the old block
-			document = append(document[:index], document[index+1:]...)
-			return updated, updatedBlock, document
-		} else {
-			// Check if the block is a child block
-			if document[index].Children != nil {
-				for i := range document[index].Children {
-					updated, updatedBlock, document[index].Children = n.checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated, updatedBlock)
-				}
+	// Check if the block is going after the current block
+	if document[index].ID == updateBlockOp.UpdatedBlock {
+		updated = &document[index]
+		document = append(document[:index], document[index+1:]...)
+	}
+
+	// Check if the block is a child block
+	if document[index].Children != nil {
+		for i := range document[index].Children {
+			updated, document[index].Children = n.findBlockToUpdateAndRemove(document[index].Children, i, updateBlockOp)
+			if updated != nil {
+				break
 			}
-			return updated, updatedBlock, document
 		}
-	} else {
-		if updateBlockOp.ParentBlock != "" && updateBlockOp.ParentBlock == document[index].ID {
-			// Check if the block has no children yet
-			if document[index].Children == nil {
-				document[index].Children = make([]types.BlockFactory, 0)
+	}
 
-				newBlock := types.BlockFactory{
-					ID:        updateBlockOp.UpdatedBlock,
-					BlockType: updateBlockOp.BlockType,
-					Props:     updateBlockOp.Props,
-					Children:  nil,
-				}
-				document[index].Children = append(document[index].Children, newBlock)
-				updated = true
-			} else if updateBlockOp.AfterBlock == "" {
-				// Add the block to the start of the children
-				newBlock := types.BlockFactory{
-					ID:        updateBlockOp.UpdatedBlock,
-					BlockType: updateBlockOp.BlockType,
-					Props:     updateBlockOp.Props,
-					Children:  nil,
-				}
-				document[index].Children = append([]types.BlockFactory{newBlock}, document[index].Children...)
-				updated = true
-			} else {
-				// Check where to add the block in the children
-				for i := range document[index].Children {
-					updated, updatedBlock, document[index].Children = n.checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated, updatedBlock)
-				}
-			}
-		} else if updateBlockOp.AfterBlock == "" && updateBlockOp.ParentBlock == "" {
-			// Add the block to the start of the document
-			newBlock := types.BlockFactory{
-				ID:        updateBlockOp.UpdatedBlock,
-				BlockType: updateBlockOp.BlockType,
-				Props:     updateBlockOp.Props,
-				Children:  nil,
-			}
-			document = append([]types.BlockFactory{newBlock}, document...)
-			updated = true
-		} else if document[index].ID == updateBlockOp.AfterBlock {
-			newBlock := types.BlockFactory{
-				ID:        updateBlockOp.UpdatedBlock,
-				BlockType: updateBlockOp.BlockType,
-				Props:     updateBlockOp.Props,
-				Children:  nil,
-			}
-			document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
-			updated = true
+	return updated, document
+}
+
+// checkAddBlockAtPosition checks if the addBlockOp should be added to the document at the current index
+// Returns true if the block was added, false otherwise
+func (n *node) checkAddBackBlockAtPosition(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock, updatedBlock types.BlockFactory) (bool, []types.BlockFactory) {
+	added := false
+
+	// Check if the block is a child block
+	if updateBlockOp.ParentBlock != "" && updateBlockOp.ParentBlock == document[index].ID {
+		// Check if the block has no children yet
+		if document[index].Children == nil {
+			document[index].Children = make([]types.BlockFactory, 0)
+			document[index].Children = append(document[index].Children, updatedBlock)
+			added = true
+		} else if updateBlockOp.AfterBlock == "" {
+			// Add the block to the start of the children
+			document[index].Children = append([]types.BlockFactory{updatedBlock}, document[index].Children...)
+			added = true
 		} else {
-			if document[index].Children != nil {
-				for i := range document[index].Children {
-					// Recursively check the children blocks
-					updated, updatedBlock, document[index].Children = n.checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated, updatedBlock)
+			// Check where to add the block in the children
+			for i := range document[index].Children {
+				added, document[index].Children = n.checkAddBackBlockAtPosition(document[index].Children, i, updateBlockOp, updatedBlock)
+				if added {
+					break
+				}
+			}
+		}
+	}
+	
+	// Check if the block is going at the start of the document
+	if !added && (updateBlockOp.AfterBlock == "" && updateBlockOp.ParentBlock == "") {
+		document = append([]types.BlockFactory{updatedBlock}, document...)
+		added = true
+	} else if !added && (document[index].ID == updateBlockOp.AfterBlock) {
+			// Check if the block is going after the current block
+		document = append(document[:index+1], append([]types.BlockFactory{updatedBlock}, document[index+1:]...)...)
+		added = true
+	} else if !added {
+		if document[index].Children != nil {
+			for i := range document[index].Children {
+				// Recursively check the children blocks
+				added, document[index].Children = n.checkAddBackBlockAtPosition(document[index].Children, i, updateBlockOp, updatedBlock)
+				if added {
+					break
 				}
 			}
 		}
 	}
 
-	return updated, updatedBlock, document
+	return added, document
 }
+
 
 func (n *node) updateBlockProps(blockProps types.DefaultBlockProps, updatedProps types.DefaultBlockProps) types.DefaultBlockProps {
 
