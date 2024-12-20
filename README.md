@@ -75,6 +75,14 @@ At the top of the editor, you see a 'Sync' button. This allows you to:
 <img width="500" alt="image" src="https://github.com/user-attachments/assets/8e7f5a71-ee31-4c5a-9d2a-d46f8b68d64f" />
 </p>
 
+### Troubleshooting
+
+If you have the error `message too long`, you need to update the UDP buffer size with the following command
+
+```console
+sudo sysctl -w net.inet.udp.maxdgram=65535
+```
+
 ### Disclaimer
 
 The implementation still needs to integrate some block types. Here are the currently not supported types:
