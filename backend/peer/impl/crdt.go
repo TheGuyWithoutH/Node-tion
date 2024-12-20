@@ -6,209 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
-	"strings"
 	"time"
 
 	"golang.org/x/xerrors"
 )
 
-///*CompileDocument compiles the document requested from the editor into a JSON string.
-// * Algorithm:
-// * 1. Get the document editor.
-// * 2. For each block in the editor, open a new block in the JSON string.
-// * 3. For each op in the block, sort the ops by the afterID and then by the operation id.
-// * 4. Apply the non mark operations.
-// * 5. Apply the mark operations.
-// */
-//func (n *node) CompileDocumentOld(docID string) (string, error) {
-//	editor := n.GetDocumentOps(docID)
-//	if editor == nil {
-//		return "", xerrors.Errorf("document not found")
-//	}
-//
-//	finalDoc := make(map[string]types.BlockType, len(editor))
-//	var CRDTAddBlockOps []types.CRDTOperation
-//	childrenAddBlockOps := make(map[string][]types.CRDTOperation) //parentBlock -> addBlockOpChildren
-//
-//	// Loop through the blocks of the document
-//	// Subsequent blocks may be children and should therefore be added to the parent block
-//	for _, blockOps := range editor {
-//		// Filter the insert operations
-//		insertOps, updatedBlock, removed := n.filterOps(blockOps, types.CRDTInsertCharType)
-//		if removed {
-//			n.logCRDT.Debug().Msgf("block removed")
-//			continue
-//		}
-//
-//		// Sort the blockOps and remove the chars that are marked for deletion
-//		removeOps, _, _ := n.filterOps(blockOps, types.CRDTDeleteCharType)
-//		sortedChars, err := n.sortInsertOps(insertOps, removeOps)
-//		if err != nil {
-//			return "", xerrors.Errorf("failed to sort insert operations: %v", err)
-//		}
-//
-//		// ---------- Block Ops
-//		// Create a new block, this assumes that the first op is an addBlock op
-//		Op1 := blockOps[0]
-//		if Op1.Type != types.CRDTAddBlockType {
-//			return "", xerrors.Errorf("first operation must be a create block operation")
-//		}
-//		blockOp, ok := Op1.Operation.(types.CRDTAddBlock)
-//		if !ok {
-//			return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
-//		}
-//		opID, err := ReconstructOpID(Op1.OperationID, Op1.Origin)
-//		if err != nil {
-//			return "", xerrors.Errorf("failed to convert operationID to string: %v", err)
-//		}
-//		blockOp.OpID = opID
-//		blockOp = n.updateBlock(blockOp, updatedBlock) // Updates the block with the updated block props if applicable
-//
-//		block := n.createBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
-//
-//		// ---------- Mark Ops
-//		// Create a map opID -> textStyle
-//		textStyles := make(map[string]types.TextStyle, len(sortedChars))
-//		// Apply the addMark operations
-//		addMarkOps, _, _ := n.filterOps(blockOps, types.CRDTAddMarkType)
-//		for _, op := range addMarkOps {
-//			addMark, ok := op.Operation.(types.CRDTAddMark)
-//			if !ok {
-//				return "", xerrors.Errorf("failed to cast operation to CRDTAddMark")
-//			}
-//			startFound := false
-//			for _, char := range sortedChars {
-//				if char.OpID == addMark.Start.OpID {
-//					startFound = true
-//				}
-//				if startFound {
-//					textStyles[char.OpID] = n.addMark2TextStyle(textStyles[char.OpID], addMark)
-//				}
-//				if char.OpID == addMark.End.OpID {
-//					break
-//				}
-//			}
-//		}
-//		// Remove the marks
-//		deleteMarkOps, _, _ := n.filterOps(blockOps, types.CRDTRemoveMarkType)
-//		for _, op := range deleteMarkOps {
-//			deleteMark, ok := op.Operation.(types.CRDTRemoveMark)
-//			if !ok {
-//				return "", xerrors.Errorf("failed to cast operation to CRDTRemoveMark")
-//			}
-//			startFound := false
-//			for _, char := range sortedChars {
-//				if char.OpID == deleteMark.Start.OpID {
-//					startFound = true
-//				}
-//				if startFound {
-//					textStyles[char.OpID] = n.removeMark2TextStyle(textStyles[char.OpID], deleteMark.MarkType)
-//				}
-//				if char.OpID == deleteMark.End.OpID {
-//					break
-//				}
-//			}
-//		}
-//
-//		// ----- Adding the content to the block
-//		types.AddContent(block, sortedChars, textStyles)
-//		finalDoc[blockOp.OpID] = block
-//		n.logCRDT.Debug().Msgf("block %s added to finalDoc", blockOp.OpID)
-//
-//		// Check if the block has parents
-//		if blockOp.ParentBlock != "" {
-//			// Add the block to the parent-children map to be sorted and added later
-//			childrenAddBlockOps[blockOp.ParentBlock] = append(childrenAddBlockOps[blockOp.ParentBlock], Op1)
-//		} else {
-//			CRDTAddBlockOps = append(CRDTAddBlockOps, Op1)
-//		}
-//	}
-//
-//	// Add the children blocks to the parent blocks
-//	// For each parent block (Iterating over the keys)
-//	for parentID, addBlocks := range childrenAddBlockOps {
-//		// Sort the add blocks in the correct generation order
-//		sortedChildrenBlockIDs := n.sortAddBlockOpIDs(addBlocks)
-//		n.logCRDT.Debug().Msgf("Parent Block %s : Sorted children blockIDs %s", parentID, sortedChildrenBlockIDs)
-//		// For each child block, add it to the parent block
-//		parentBlock := finalDoc[parentID]
-//		for _, childID := range sortedChildrenBlockIDs {
-//			childBlock := finalDoc[childID]
-//			// Add the child block to the parent block
-//			types.AddChildren(parentBlock, []types.BlockType{childBlock})
-//			n.logCRDT.Debug().Msgf("block %s added to parent block %s", childID, parentID)
-//			// Delete the child block from the final document
-//			delete(finalDoc, childID)
-//			n.logCRDT.Debug().Msgf("block %s removed from finalDoc", childID)
-//		}
-//
-//	}
-//
-//	// Now that we have the final document, we can convert it to a JSON string
-//	finalJSON := "[ "
-//
-//	// We need to iterate over the blocks in the correct order:
-//	// Get the indices of the blocks and sort them by the block id
-//	docBlockOps := n.sortAddBlockOpIDs(CRDTAddBlockOps)
-//	n.logCRDT.Info().Msgf("Sorted blockIDs %s", docBlockOps)
-//
-//	for _, blockID := range docBlockOps {
-//		n.logCRDT.Debug().Msgf("block %s being compiled", blockID)
-//		block := finalDoc[blockID]
-//		finalJSON += types.SerializeBlock(block) + ","
-//	}
-//	finalJSON = finalJSON[:len(finalJSON)-1] // Remove the additional ","
-//	finalJSON += "]"
-//
-//	return finalJSON, nil
-//}
-
-func (n *node) getIDIndex(ID string, charIDs []string) int {
-	pos := -1
-	for i, charID := range charIDs {
-		if charID == ID {
-			pos = i
-			break
-		}
-	}
-	return pos
-}
-
-// Map is by reference TODO: Check if this is correct
-func (n *node) applyAddMark(textStyles map[string]types.TextStyle, charIDs []string, startID, endID string, op types.CRDTAddMark) {
-
-	startFound := false
-	for _, charID := range charIDs {
-		if charID == startID {
-			startFound = true
-		}
-		if startFound {
-			textStyles[charID] = n.addMark2TextStyle(textStyles[charID], op)
-		}
-		if charID == endID {
-			break
-		}
-	}
-}
-
-func (n *node) applyRemoveMark(textStyles map[string]types.TextStyle, charIDs []string, startID, endID string, op types.CRDTRemoveMark) {
-
-	startFound := false
-	for _, charID := range charIDs {
-		if charID == startID {
-			startFound = true
-		}
-		if startFound {
-			textStyles[charID] = n.removeMark2TextStyle(textStyles[charID], op.MarkType)
-		}
-		if charID == endID {
-			break
-		}
-	}
-}
-
 func (n *node) createBlockContent(ops []types.CRDTOperation) []types.InlineContent {
+	ops = n.sortOps(ops)
 
 	var text string
 	textStyles := make(map[string]types.TextStyle) // opID -> textStyle
@@ -352,6 +156,49 @@ func compareTextStyle(a types.TextStyle, b types.TextStyle) bool {
 	}
 
 	return true
+}
+
+func (n *node) getIDIndex(ID string, charIDs []string) int {
+	pos := -1
+	for i, charID := range charIDs {
+		if charID == ID {
+			pos = i
+			break
+		}
+	}
+	return pos
+}
+
+func (n *node) applyAddMark(textStyles map[string]types.TextStyle, charIDs []string, startID, endID string, op types.CRDTAddMark) {
+
+	startFound := false
+	for _, charID := range charIDs {
+		if charID == startID {
+			startFound = true
+		}
+		if startFound {
+			textStyles[charID] = n.addMark2TextStyle(textStyles[charID], op)
+		}
+		if charID == endID {
+			break
+		}
+	}
+}
+
+func (n *node) applyRemoveMark(textStyles map[string]types.TextStyle, charIDs []string, startID, endID string, op types.CRDTRemoveMark) {
+
+	startFound := false
+	for _, charID := range charIDs {
+		if charID == startID {
+			startFound = true
+		}
+		if startFound {
+			textStyles[charID] = n.removeMark2TextStyle(textStyles[charID], op.MarkType)
+		}
+		if charID == endID {
+			break
+		}
+	}
 }
 
 func (n *node) sortOps(ops []types.CRDTOperation) []types.CRDTOperation {
@@ -804,189 +651,6 @@ func (n *node) removeMark2TextStyle(textStyle types.TextStyle, toRemove string) 
 	return textStyle
 }
 
-// filterOps filters the opType operations from the block's operations op and checks if the block is removed or updated
-// Returns the filtered operations, the UpdateBlockOp if applicable and  a boolean indicating if the block is removed
-func (n *node) filterOps(ops []types.CRDTOperation, opType string) ([]types.CRDTOperation, *types.CRDTUpdateBlock, bool) {
-	var filteredOps []types.CRDTOperation
-	var updateBlockOp types.CRDTUpdateBlock
-	ok := false
-	for _, op := range ops {
-		if op.Type == types.CRDTRemoveBlockType {
-			return nil, &updateBlockOp, true
-		}
-		if op.Type == opType {
-			filteredOps = append(filteredOps, op)
-		}
-		if op.Type == types.CRDTUpdateBlockType {
-			updateBlockOp, ok = op.Operation.(types.CRDTUpdateBlock)
-			if !ok {
-				n.logCRDT.Error().Msgf("failed to cast operation to CRDTUpdateBlock")
-			}
-		}
-	}
-	return filteredOps, &updateBlockOp, false
-}
-
-// SortAddBlockOpIDs sorts the operations in the block by their afterBlockID and then by their Operation id.
-// Returns the blockIDs in the correct order of generation
-func (n *node) sortAddBlockOpIDs(ops []types.CRDTOperation) []string {
-
-	sort.Slice(ops, func(i, j int) bool {
-		// Cast the operations to the correct type
-		addBlockOp1, ok := ops[i].Operation.(types.CRDTAddBlock)
-		if !ok {
-			n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddBlock")
-		}
-		addBlockOp2, ok := ops[j].Operation.(types.CRDTAddBlock)
-		if !ok {
-			n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddBlock")
-		}
-
-		split1 := strings.Split(addBlockOp1.AfterBlock, "@")
-		afterOp1, err := strconv.Atoi(split1[0])
-		afterAddr1 := split1[1]
-		if err != nil {
-			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
-			afterOp1 = 0
-			afterAddr1 = ""
-		}
-
-		split2 := strings.Split(addBlockOp2.AfterBlock, "@")
-		afterOp2, err := strconv.Atoi(split2[0])
-		afterAddr2 := split2[1]
-		if err != nil {
-			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
-			afterOp2 = 0
-			afterAddr2 = ""
-		}
-
-		if afterOp1 == afterOp2 { // AftersOpIDs are the same
-			if afterAddr1 == afterAddr2 { // Addresses of the afterID are also the same
-				// Compare the operation ids of the insert
-				if ops[i].OperationID == ops[j].OperationID {
-					return ops[i].Origin < ops[j].Origin
-				}
-				return ops[i].OperationID > ops[j].OperationID
-			}
-		}
-
-		if addBlockOp1.AfterBlock == "" {
-			return true
-		}
-		if addBlockOp2.AfterBlock == "" {
-			return false
-		}
-
-		return afterOp1 < afterOp2
-	})
-
-	// Turn the operations into a slice of blockIDs and CRDTADDBlock
-	var blockIDs []string
-	for _, op := range ops {
-		blockID, err := ReconstructOpID(op.OperationID, op.Origin)
-		if err != nil {
-			n.logCRDT.Error().Msgf("failed to reconstruct opID: %s", err)
-		}
-		blockIDs = append(blockIDs, blockID)
-
-		addBlockOp, ok := op.Operation.(types.CRDTAddBlock)
-		if !ok {
-			n.logCRDT.Error().Msgf("failed to cast operation to CRDTAddBlock")
-		}
-		n.logCRDT.Debug().Msgf("blockID %s : AfterBlock %s", blockID, addBlockOp.AfterBlock)
-	}
-
-	return blockIDs
-}
-
-// sortInsertOps sorts the operations in the block by their afterID and then by their Operation id.
-// It also removes the characters that are marked for deletion.
-// Fills in the opID field of the insert operations
-func (n *node) sortInsertOps(ops []types.CRDTOperation, toRemove []types.CRDTOperation) ([]types.CRDTInsertChar, error) {
-	sort.Slice(ops, func(i, j int) bool {
-		// Cast the operations to the correct type
-		insertOp1, ok := ops[i].Operation.(types.CRDTInsertChar)
-		if !ok {
-			n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar: %v", insertOp1)
-		}
-		insertOp2, ok := ops[j].Operation.(types.CRDTInsertChar)
-		if !ok {
-			n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar: %v", insertOp2)
-		}
-
-		//TODO: Add these lines at the end
-		if insertOp1.AfterID == "" {
-			return true
-		}
-
-		if insertOp2.AfterID == "" {
-			return false
-		}
-
-		split1 := strings.Split(insertOp1.AfterID, "@")
-		afterOp1, err := strconv.Atoi(split1[0])
-		if err != nil {
-			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
-		}
-		afterAddr1 := split1[1]
-
-		split2 := strings.Split(insertOp2.AfterID, "@")
-		afterOp2, err2 := strconv.Atoi(split2[0])
-		if err2 != nil {
-			n.logCRDT.Error().Msgf("failed to convert afterID to int: %s", err)
-		}
-		afterAddr2 := split2[1]
-
-		if afterOp1 == afterOp2 { // AftersOpIDs are the same
-			if afterAddr1 == afterAddr2 { // Addresses of the afterID are also the same
-				// Compare the operation ids of the insert
-				if ops[i].OperationID == ops[j].OperationID {
-					return ops[i].Origin < ops[j].Origin
-				}
-				return ops[i].OperationID > ops[j].OperationID
-			}
-
-			return afterAddr1 < afterAddr2
-		}
-
-		return afterOp1 < afterOp2
-	})
-
-	// Turn the operations into a slice of CRDTInsertChar
-	var insertOps []types.CRDTInsertChar
-	for _, op := range ops {
-		insertOp, ok := op.Operation.(types.CRDTInsertChar)
-		if !ok {
-			n.logCRDT.Error().Msgf("failed to cast operation to CRDTInsertChar")
-			return nil, xerrors.Errorf("failed to cast operation to CRDTInsertChar")
-		}
-		opID, err := ReconstructOpID(op.OperationID, op.Origin)
-		if err != nil {
-			n.logCRDT.Error().Msgf("failed to reconstruct opID: %s", err)
-			return nil, xerrors.Errorf("failed to reconstruct opID: %w", err)
-		}
-		insertOp.OpID = opID
-		insertOps = append(insertOps, insertOp)
-	}
-
-	// Remove the characters that are marked for deletion
-	for _, op := range toRemove {
-		// Cast the operation to the correct type
-		removeOp, err := op.Operation.(types.CRDTDeleteChar)
-		if err {
-			n.logCRDT.Error().Msgf("failed to cast operation to CRDTDeleteChar")
-		}
-		for i, insertOp := range insertOps {
-			// Cast the operation to the correct type
-			if insertOp.OpID == removeOp.RemovedID {
-				insertOps = append(insertOps[:i], insertOps[i+1:]...)
-				break
-			}
-		}
-	}
-	return insertOps, nil
-}
-
 func (n *node) StoreDocument(docID, doc string) error {
 	// Get the directory to store documents
 	docDir := n.conf.DocumentDir
@@ -1281,66 +945,6 @@ func (n *node) processAndBroadcast(transactions types.CRDTOperationsMessage) err
 	}
 	return n.Broadcast(msg)
 }
-
-//
-//func (n *node) createBlock(blockType types.BlockTypeName, props types.DefaultBlockProps, blockID string) types.BlockType {
-//	switch blockType {
-//	case types.ParagraphBlockType:
-//		return &types.ParagraphBlock{
-//			BlockType: nil,
-//			Default:   props,
-//			ID:        blockID,
-//			Content:   nil,
-//			Children:  nil,
-//		}
-//	case types.HeadingBlockType:
-//		return &types.HeadingBlock{
-//			BlockType: nil,
-//			Default:   props,
-//			ID:        blockID,
-//			Level:     props.Level,
-//			Content:   nil,
-//			Children:  nil,
-//		}
-//	case types.BulletedListBlockType:
-//		return &types.BulletedListBlock{
-//			BlockType: nil,
-//			Default:   props,
-//			ID:        blockID,
-//			Content:   nil,
-//			Children:  nil,
-//		}
-//	case types.NumberedListBlockType:
-//		return &types.NumberedListBlock{
-//			BlockType: nil,
-//			Default:   props,
-//			ID:        blockID,
-//			Content:   nil,
-//			Children:  nil,
-//		}
-//	case types.ImageBlockType:
-//		return &types.ImageBlock{
-//			BlockType:    nil,
-//			Default:      props,
-//			ID:           blockID,
-//			URL:          "",
-//			Caption:      "",
-//			PreviewWidth: 0,
-//			Children:     nil,
-//		}
-//	case types.TableBlockType:
-//		return &types.TableBlock{
-//			BlockType: nil,
-//			Default:   props,
-//			ID:        blockID,
-//			Content:   types.TableContent{},
-//			Children:  nil,
-//		}
-//
-//	default:
-//		return nil
-//	}
-//}
 
 // -------------------------------------------------------------------
 // Exported CRDT Operations
