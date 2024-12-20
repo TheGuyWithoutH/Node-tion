@@ -13,156 +13,156 @@ import (
 	"golang.org/x/xerrors"
 )
 
-/*CompileDocument compiles the document requested from the editor into a JSON string.
- * Algorithm:
- * 1. Get the document editor.
- * 2. For each block in the editor, open a new block in the JSON string.
- * 3. For each op in the block, sort the ops by the afterID and then by the operation id.
- * 4. Apply the non mark operations.
- * 5. Apply the mark operations.
- */
-func (n *node) CompileDocumentOld(docID string) (string, error) {
-	editor := n.GetDocumentOps(docID)
-	if editor == nil {
-		return "", xerrors.Errorf("document not found")
-	}
-
-	finalDoc := make(map[string]types.BlockType, len(editor))
-	var CRDTAddBlockOps []types.CRDTOperation
-	childrenAddBlockOps := make(map[string][]types.CRDTOperation) //parentBlock -> addBlockOpChildren
-
-	// Loop through the blocks of the document
-	// Subsequent blocks may be children and should therefore be added to the parent block
-	for _, blockOps := range editor {
-		// Filter the insert operations
-		insertOps, updatedBlock, removed := n.filterOps(blockOps, types.CRDTInsertCharType)
-		if removed {
-			n.logCRDT.Debug().Msgf("block removed")
-			continue
-		}
-
-		// Sort the blockOps and remove the chars that are marked for deletion
-		removeOps, _, _ := n.filterOps(blockOps, types.CRDTDeleteCharType)
-		sortedChars, err := n.sortInsertOps(insertOps, removeOps)
-		if err != nil {
-			return "", xerrors.Errorf("failed to sort insert operations: %v", err)
-		}
-
-		// ---------- Block Ops
-		// Create a new block, this assumes that the first op is an addBlock op
-		Op1 := blockOps[0]
-		if Op1.Type != types.CRDTAddBlockType {
-			return "", xerrors.Errorf("first operation must be a create block operation")
-		}
-		blockOp, ok := Op1.Operation.(types.CRDTAddBlock)
-		if !ok {
-			return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
-		}
-		opID, err := ReconstructOpID(Op1.OperationID, Op1.Origin)
-		if err != nil {
-			return "", xerrors.Errorf("failed to convert operationID to string: %v", err)
-		}
-		blockOp.OpID = opID
-		blockOp = n.updateBlock(blockOp, updatedBlock) // Updates the block with the updated block props if applicable
-
-		block := n.createBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
-
-		// ---------- Mark Ops
-		// Create a map opID -> textStyle
-		textStyles := make(map[string]types.TextStyle, len(sortedChars))
-		// Apply the addMark operations
-		addMarkOps, _, _ := n.filterOps(blockOps, types.CRDTAddMarkType)
-		for _, op := range addMarkOps {
-			addMark, ok := op.Operation.(types.CRDTAddMark)
-			if !ok {
-				return "", xerrors.Errorf("failed to cast operation to CRDTAddMark")
-			}
-			startFound := false
-			for _, char := range sortedChars {
-				if char.OpID == addMark.Start.OpID {
-					startFound = true
-				}
-				if startFound {
-					textStyles[char.OpID] = n.addMark2TextStyle(textStyles[char.OpID], addMark)
-				}
-				if char.OpID == addMark.End.OpID {
-					break
-				}
-			}
-		}
-		// Remove the marks
-		deleteMarkOps, _, _ := n.filterOps(blockOps, types.CRDTRemoveMarkType)
-		for _, op := range deleteMarkOps {
-			deleteMark, ok := op.Operation.(types.CRDTRemoveMark)
-			if !ok {
-				return "", xerrors.Errorf("failed to cast operation to CRDTRemoveMark")
-			}
-			startFound := false
-			for _, char := range sortedChars {
-				if char.OpID == deleteMark.Start.OpID {
-					startFound = true
-				}
-				if startFound {
-					textStyles[char.OpID] = n.removeMark2TextStyle(textStyles[char.OpID], deleteMark.MarkType)
-				}
-				if char.OpID == deleteMark.End.OpID {
-					break
-				}
-			}
-		}
-
-		// ----- Adding the content to the block
-		types.AddContent(block, sortedChars, textStyles)
-		finalDoc[blockOp.OpID] = block
-		n.logCRDT.Debug().Msgf("block %s added to finalDoc", blockOp.OpID)
-
-		// Check if the block has parents
-		if blockOp.ParentBlock != "" {
-			// Add the block to the parent-children map to be sorted and added later
-			childrenAddBlockOps[blockOp.ParentBlock] = append(childrenAddBlockOps[blockOp.ParentBlock], Op1)
-		} else {
-			CRDTAddBlockOps = append(CRDTAddBlockOps, Op1)
-		}
-	}
-
-	// Add the children blocks to the parent blocks
-	// For each parent block (Iterating over the keys)
-	for parentID, addBlocks := range childrenAddBlockOps {
-		// Sort the add blocks in the correct generation order
-		sortedChildrenBlockIDs := n.sortAddBlockOpIDs(addBlocks)
-		n.logCRDT.Debug().Msgf("Parent Block %s : Sorted children blockIDs %s", parentID, sortedChildrenBlockIDs)
-		// For each child block, add it to the parent block
-		parentBlock := finalDoc[parentID]
-		for _, childID := range sortedChildrenBlockIDs {
-			childBlock := finalDoc[childID]
-			// Add the child block to the parent block
-			types.AddChildren(parentBlock, []types.BlockType{childBlock})
-			n.logCRDT.Debug().Msgf("block %s added to parent block %s", childID, parentID)
-			// Delete the child block from the final document
-			delete(finalDoc, childID)
-			n.logCRDT.Debug().Msgf("block %s removed from finalDoc", childID)
-		}
-
-	}
-
-	// Now that we have the final document, we can convert it to a JSON string
-	finalJSON := "[ "
-
-	// We need to iterate over the blocks in the correct order:
-	// Get the indices of the blocks and sort them by the block id
-	docBlockOps := n.sortAddBlockOpIDs(CRDTAddBlockOps)
-	n.logCRDT.Info().Msgf("Sorted blockIDs %s", docBlockOps)
-
-	for _, blockID := range docBlockOps {
-		n.logCRDT.Debug().Msgf("block %s being compiled", blockID)
-		block := finalDoc[blockID]
-		finalJSON += types.SerializeBlock(block) + ","
-	}
-	finalJSON = finalJSON[:len(finalJSON)-1] // Remove the additional ","
-	finalJSON += "]"
-
-	return finalJSON, nil
-}
+///*CompileDocument compiles the document requested from the editor into a JSON string.
+// * Algorithm:
+// * 1. Get the document editor.
+// * 2. For each block in the editor, open a new block in the JSON string.
+// * 3. For each op in the block, sort the ops by the afterID and then by the operation id.
+// * 4. Apply the non mark operations.
+// * 5. Apply the mark operations.
+// */
+//func (n *node) CompileDocumentOld(docID string) (string, error) {
+//	editor := n.GetDocumentOps(docID)
+//	if editor == nil {
+//		return "", xerrors.Errorf("document not found")
+//	}
+//
+//	finalDoc := make(map[string]types.BlockType, len(editor))
+//	var CRDTAddBlockOps []types.CRDTOperation
+//	childrenAddBlockOps := make(map[string][]types.CRDTOperation) //parentBlock -> addBlockOpChildren
+//
+//	// Loop through the blocks of the document
+//	// Subsequent blocks may be children and should therefore be added to the parent block
+//	for _, blockOps := range editor {
+//		// Filter the insert operations
+//		insertOps, updatedBlock, removed := n.filterOps(blockOps, types.CRDTInsertCharType)
+//		if removed {
+//			n.logCRDT.Debug().Msgf("block removed")
+//			continue
+//		}
+//
+//		// Sort the blockOps and remove the chars that are marked for deletion
+//		removeOps, _, _ := n.filterOps(blockOps, types.CRDTDeleteCharType)
+//		sortedChars, err := n.sortInsertOps(insertOps, removeOps)
+//		if err != nil {
+//			return "", xerrors.Errorf("failed to sort insert operations: %v", err)
+//		}
+//
+//		// ---------- Block Ops
+//		// Create a new block, this assumes that the first op is an addBlock op
+//		Op1 := blockOps[0]
+//		if Op1.Type != types.CRDTAddBlockType {
+//			return "", xerrors.Errorf("first operation must be a create block operation")
+//		}
+//		blockOp, ok := Op1.Operation.(types.CRDTAddBlock)
+//		if !ok {
+//			return "", xerrors.Errorf("failed to cast operation to CRDTAddBlock")
+//		}
+//		opID, err := ReconstructOpID(Op1.OperationID, Op1.Origin)
+//		if err != nil {
+//			return "", xerrors.Errorf("failed to convert operationID to string: %v", err)
+//		}
+//		blockOp.OpID = opID
+//		blockOp = n.updateBlock(blockOp, updatedBlock) // Updates the block with the updated block props if applicable
+//
+//		block := n.createBlock(blockOp.BlockType, blockOp.Props, blockOp.OpID)
+//
+//		// ---------- Mark Ops
+//		// Create a map opID -> textStyle
+//		textStyles := make(map[string]types.TextStyle, len(sortedChars))
+//		// Apply the addMark operations
+//		addMarkOps, _, _ := n.filterOps(blockOps, types.CRDTAddMarkType)
+//		for _, op := range addMarkOps {
+//			addMark, ok := op.Operation.(types.CRDTAddMark)
+//			if !ok {
+//				return "", xerrors.Errorf("failed to cast operation to CRDTAddMark")
+//			}
+//			startFound := false
+//			for _, char := range sortedChars {
+//				if char.OpID == addMark.Start.OpID {
+//					startFound = true
+//				}
+//				if startFound {
+//					textStyles[char.OpID] = n.addMark2TextStyle(textStyles[char.OpID], addMark)
+//				}
+//				if char.OpID == addMark.End.OpID {
+//					break
+//				}
+//			}
+//		}
+//		// Remove the marks
+//		deleteMarkOps, _, _ := n.filterOps(blockOps, types.CRDTRemoveMarkType)
+//		for _, op := range deleteMarkOps {
+//			deleteMark, ok := op.Operation.(types.CRDTRemoveMark)
+//			if !ok {
+//				return "", xerrors.Errorf("failed to cast operation to CRDTRemoveMark")
+//			}
+//			startFound := false
+//			for _, char := range sortedChars {
+//				if char.OpID == deleteMark.Start.OpID {
+//					startFound = true
+//				}
+//				if startFound {
+//					textStyles[char.OpID] = n.removeMark2TextStyle(textStyles[char.OpID], deleteMark.MarkType)
+//				}
+//				if char.OpID == deleteMark.End.OpID {
+//					break
+//				}
+//			}
+//		}
+//
+//		// ----- Adding the content to the block
+//		types.AddContent(block, sortedChars, textStyles)
+//		finalDoc[blockOp.OpID] = block
+//		n.logCRDT.Debug().Msgf("block %s added to finalDoc", blockOp.OpID)
+//
+//		// Check if the block has parents
+//		if blockOp.ParentBlock != "" {
+//			// Add the block to the parent-children map to be sorted and added later
+//			childrenAddBlockOps[blockOp.ParentBlock] = append(childrenAddBlockOps[blockOp.ParentBlock], Op1)
+//		} else {
+//			CRDTAddBlockOps = append(CRDTAddBlockOps, Op1)
+//		}
+//	}
+//
+//	// Add the children blocks to the parent blocks
+//	// For each parent block (Iterating over the keys)
+//	for parentID, addBlocks := range childrenAddBlockOps {
+//		// Sort the add blocks in the correct generation order
+//		sortedChildrenBlockIDs := n.sortAddBlockOpIDs(addBlocks)
+//		n.logCRDT.Debug().Msgf("Parent Block %s : Sorted children blockIDs %s", parentID, sortedChildrenBlockIDs)
+//		// For each child block, add it to the parent block
+//		parentBlock := finalDoc[parentID]
+//		for _, childID := range sortedChildrenBlockIDs {
+//			childBlock := finalDoc[childID]
+//			// Add the child block to the parent block
+//			types.AddChildren(parentBlock, []types.BlockType{childBlock})
+//			n.logCRDT.Debug().Msgf("block %s added to parent block %s", childID, parentID)
+//			// Delete the child block from the final document
+//			delete(finalDoc, childID)
+//			n.logCRDT.Debug().Msgf("block %s removed from finalDoc", childID)
+//		}
+//
+//	}
+//
+//	// Now that we have the final document, we can convert it to a JSON string
+//	finalJSON := "[ "
+//
+//	// We need to iterate over the blocks in the correct order:
+//	// Get the indices of the blocks and sort them by the block id
+//	docBlockOps := n.sortAddBlockOpIDs(CRDTAddBlockOps)
+//	n.logCRDT.Info().Msgf("Sorted blockIDs %s", docBlockOps)
+//
+//	for _, blockID := range docBlockOps {
+//		n.logCRDT.Debug().Msgf("block %s being compiled", blockID)
+//		block := finalDoc[blockID]
+//		finalJSON += types.SerializeBlock(block) + ","
+//	}
+//	finalJSON = finalJSON[:len(finalJSON)-1] // Remove the additional ","
+//	finalJSON += "]"
+//
+//	return finalJSON, nil
+//}
 
 func (n *node) getIDIndex(ID string, charIDs []string) int {
 	pos := -1
@@ -1268,64 +1268,65 @@ func (n *node) processAndBroadcast(transactions types.CRDTOperationsMessage) err
 	return n.Broadcast(msg)
 }
 
-func (n *node) createBlock(blockType types.BlockTypeName, props types.DefaultBlockProps, blockID string) types.BlockType {
-	switch blockType {
-	case types.ParagraphBlockType:
-		return &types.ParagraphBlock{
-			BlockType: nil,
-			Default:   props,
-			ID:        blockID,
-			Content:   nil,
-			Children:  nil,
-		}
-	case types.HeadingBlockType:
-		return &types.HeadingBlock{
-			BlockType: nil,
-			Default:   props,
-			ID:        blockID,
-			Level:     props.Level,
-			Content:   nil,
-			Children:  nil,
-		}
-	case types.BulletedListBlockType:
-		return &types.BulletedListBlock{
-			BlockType: nil,
-			Default:   props,
-			ID:        blockID,
-			Content:   nil,
-			Children:  nil,
-		}
-	case types.NumberedListBlockType:
-		return &types.NumberedListBlock{
-			BlockType: nil,
-			Default:   props,
-			ID:        blockID,
-			Content:   nil,
-			Children:  nil,
-		}
-	case types.ImageBlockType:
-		return &types.ImageBlock{
-			BlockType:    nil,
-			Default:      props,
-			ID:           blockID,
-			URL:          "",
-			Caption:      "",
-			PreviewWidth: 0,
-			Children:     nil,
-		}
-	case types.TableBlockType:
-		return &types.TableBlock{
-			BlockType: nil,
-			Default:   props,
-			ID:        blockID,
-			Content:   types.TableContent{},
-			Children:  nil,
-		}
-
-	default:
-		return nil
-	}
-}
+//
+//func (n *node) createBlock(blockType types.BlockTypeName, props types.DefaultBlockProps, blockID string) types.BlockType {
+//	switch blockType {
+//	case types.ParagraphBlockType:
+//		return &types.ParagraphBlock{
+//			BlockType: nil,
+//			Default:   props,
+//			ID:        blockID,
+//			Content:   nil,
+//			Children:  nil,
+//		}
+//	case types.HeadingBlockType:
+//		return &types.HeadingBlock{
+//			BlockType: nil,
+//			Default:   props,
+//			ID:        blockID,
+//			Level:     props.Level,
+//			Content:   nil,
+//			Children:  nil,
+//		}
+//	case types.BulletedListBlockType:
+//		return &types.BulletedListBlock{
+//			BlockType: nil,
+//			Default:   props,
+//			ID:        blockID,
+//			Content:   nil,
+//			Children:  nil,
+//		}
+//	case types.NumberedListBlockType:
+//		return &types.NumberedListBlock{
+//			BlockType: nil,
+//			Default:   props,
+//			ID:        blockID,
+//			Content:   nil,
+//			Children:  nil,
+//		}
+//	case types.ImageBlockType:
+//		return &types.ImageBlock{
+//			BlockType:    nil,
+//			Default:      props,
+//			ID:           blockID,
+//			URL:          "",
+//			Caption:      "",
+//			PreviewWidth: 0,
+//			Children:     nil,
+//		}
+//	case types.TableBlockType:
+//		return &types.TableBlock{
+//			BlockType: nil,
+//			Default:   props,
+//			ID:        blockID,
+//			Content:   types.TableContent{},
+//			Children:  nil,
+//		}
+//
+//	default:
+//		return nil
+//	}
+//}
 
 // -------------------------------------------------------------------
 // Exported CRDT Operations

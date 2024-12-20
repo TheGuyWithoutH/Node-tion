@@ -723,6 +723,9 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 	docUgo, err := peerUgo.CompileDocument("doc1")
 	require.NoError(t, err)
 
+	println(docYas)
+	println(docUgo)
+
 	require.JSONEq(t, docYas, docUgo)
 }
 
