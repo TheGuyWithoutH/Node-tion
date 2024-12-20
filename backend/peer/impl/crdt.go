@@ -354,11 +354,25 @@ func compareTextStyle(a types.TextStyle, b types.TextStyle) bool {
 	return true
 }
 
+func (n *node) sortOps(ops []types.CRDTOperation) []types.CRDTOperation {
+	// Sort the operations by the afterID and then by the operation id
+	sort.Slice(ops, func(i, j int) bool {
+		// If the OperationIDs are the same, sort by the origin
+		if ops[i].OperationID == ops[j].OperationID {
+			return ops[i].Origin < ops[j].Origin
+		}
+		return ops[i].OperationID < ops[j].OperationID
+	})
+
+	return ops
+
+}
 func (n *node) CompileDocument(docID string) (string, error) {
 	document := make([]types.BlockFactory, 0)
 
 	// Step 1: Populate document blocks in order
 	blockChangeOperations := n.GetDocumentOps(docID)[docID]
+	blockChangeOperations = n.sortOps(blockChangeOperations)
 
 	for _, blockChangeOp := range blockChangeOperations {
 		// Determine the type of operation
