@@ -12,6 +12,7 @@ const extractCharIds = (document: PartialBlock[]) => {
   for (const block of document) {
     const flattenedCharIds = [];
     if (!block.content) {
+      charMap[block.id || "id"] = [];
       continue;
     }
 

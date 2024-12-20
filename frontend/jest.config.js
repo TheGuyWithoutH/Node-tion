@@ -14,4 +14,5 @@ export default {
       "<rootDir>/node_modules/oniguruma-to-es/dist/index.mjs",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
+  coveragePathIgnorePatterns: ["/node_modules/", "/wailsjs/"],
 };

@@ -24,7 +24,7 @@ function findBlockNode($pos: ResolvedPos) {
 function findBlockNodeAndDepth($pos: ResolvedPos) {
   for (let depth = $pos.depth; depth >= 0; depth--) {
     const node = $pos.node(depth);
-    if (node.isBlock && node.attrs && node.attrs.id) {
+    if (node && node.isBlock && node.attrs && node.attrs.id) {
       return { node, depth };
     }
   }
@@ -43,7 +43,7 @@ function getParentBlockID(tr: Transform, pos: number) {
   // Start from one level up the tree
   for (let depth = $pos.depth; depth >= 0; depth--) {
     const node = $pos.node(depth);
-    if (node.isBlock && node.attrs && node.attrs.id) {
+    if (node && node.isBlock && node.attrs && node.attrs.id) {
       return node.attrs.id;
     }
   }
