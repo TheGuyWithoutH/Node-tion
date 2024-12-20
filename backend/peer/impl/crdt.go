@@ -394,7 +394,7 @@ func (n *node) CompileDocument(docID string) (string, error) {
 
 			// Update the block in the document
 			for i := range document {
-				updated, updatedBlock, document = checkUpdateBlockAtPosition(document, i, updateBlockOp, updated, updatedBlock)
+				updated, updatedBlock, document = n.checkUpdateBlockAtPosition(document, i, updateBlockOp, updated, updatedBlock)
 			}
 		}
 	}
@@ -542,11 +542,19 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 		}
 	}
 	
-	// Check if the block is going after the current block
-	if !added && (
-		(addBlockOp.AfterBlock == "" && addBlockOp.ParentBlock == "") ||
-		document[index].ID == addBlockOp.AfterBlock) {
+	// Check if the block is going at the start of the document
+	if !added && (addBlockOp.AfterBlock == "" && addBlockOp.ParentBlock == "") {
 		newBlock := types.BlockFactory{
+			ID:        addBlockOp.OpID,
+			BlockType: addBlockOp.BlockType,
+			Props:     addBlockOp.Props,
+			Children:  nil,
+		}
+		document = append([]types.BlockFactory{newBlock}, document...)
+		added = true
+	} else if !added && (document[index].ID == addBlockOp.AfterBlock) {
+			// Check if the block is going after the current block
+			newBlock := types.BlockFactory{
 			ID:        addBlockOp.OpID,
 			BlockType: addBlockOp.BlockType,
 			Props:     addBlockOp.Props,
@@ -595,32 +603,84 @@ func checkRemoveBlockAtPosition(document []types.BlockFactory, index int, remove
 // checkUpdateBlockAtPosition checks if the updateBlockOp should be updated in the document at the current index
 // Returns true if the block was updated, false otherwise
 // Also returns the updated block reference
-func checkUpdateBlockAtPosition(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock, updated bool, updatedBlock *types.BlockFactory) (bool, *types.BlockFactory, []types.BlockFactory) {
-	// Check if block was already updated and this is a block with the same ID
-	if updated && document[index].ID == updateBlockOp.UpdatedBlock {
-		// Apply previous children to the updated block
-		updatedBlock.Children = document[index].Children
+func (n *node) checkUpdateBlockAtPosition(document []types.BlockFactory, index int, updateBlockOp types.CRDTUpdateBlock, updated bool, updatedBlock *types.BlockFactory) (bool, *types.BlockFactory, []types.BlockFactory) {
+	if updated {
+		if document[index].ID == updateBlockOp.UpdatedBlock {
+			// Apply previous children to the updated block and merge the props
+			updatedBlock.Children = document[index].Children
+			updatedBlock.Props = n.updateBlockProps(document[index].Props, updateBlockOp.Props)
+	
+			// Delete the old block
+			document = append(document[:index], document[index+1:]...)
+			return updated, updatedBlock, document
+		} else {
+			// Check if the block is a child block
+			if document[index].Children != nil {
+				for i := range document[index].Children {
+					updated, updatedBlock, document[index].Children = n.checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated, updatedBlock)
+				}
+			}
+			return updated, updatedBlock, document
+		}
+	} else {
+		if updateBlockOp.ParentBlock != "" && updateBlockOp.ParentBlock == document[index].ID {
+			// Check if the block has no children yet
+			if document[index].Children == nil {
+				document[index].Children = make([]types.BlockFactory, 0)
 
-		// Delete the old block
-		document = append(document[:index], document[index+1:]...)
-		return true, updatedBlock, document
-	}
-
-	// Check if the block is going after the current block
-	if document[index].ID == updateBlockOp.UpdatedBlock {
-		document[index].BlockType = updateBlockOp.BlockType
-		document[index].Props = updateBlockOp.Props
-		updated = true
-		updatedBlock = &document[index]
-	}
-
-	// Check if the block is a child block
-	if document[index].Children != nil {
-		for i := range document[index].Children {
-			return checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated, updatedBlock)
+				newBlock := types.BlockFactory{
+					ID:        updateBlockOp.UpdatedBlock,
+					BlockType: updateBlockOp.BlockType,
+					Props:     updateBlockOp.Props,
+					Children:  nil,
+				}
+				document[index].Children = append(document[index].Children, newBlock)
+				updated = true
+			} else if updateBlockOp.AfterBlock == "" {
+				// Add the block to the start of the children
+				newBlock := types.BlockFactory{
+					ID:        updateBlockOp.UpdatedBlock,
+					BlockType: updateBlockOp.BlockType,
+					Props:     updateBlockOp.Props,
+					Children:  nil,
+				}
+				document[index].Children = append([]types.BlockFactory{newBlock}, document[index].Children...)
+				updated = true
+			} else {
+				// Check where to add the block in the children
+				for i := range document[index].Children {
+					updated, updatedBlock, document[index].Children = n.checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated, updatedBlock)
+				}
+			}
+		} else if updateBlockOp.AfterBlock == "" && updateBlockOp.ParentBlock == "" {
+			// Add the block to the start of the document
+			newBlock := types.BlockFactory{
+				ID:        updateBlockOp.UpdatedBlock,
+				BlockType: updateBlockOp.BlockType,
+				Props:     updateBlockOp.Props,
+				Children:  nil,
+			}
+			document = append([]types.BlockFactory{newBlock}, document...)
+			updated = true
+		} else if document[index].ID == updateBlockOp.AfterBlock {
+			newBlock := types.BlockFactory{
+				ID:        updateBlockOp.UpdatedBlock,
+				BlockType: updateBlockOp.BlockType,
+				Props:     updateBlockOp.Props,
+				Children:  nil,
+			}
+			document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
+			updated = true
+		} else {
+			if document[index].Children != nil {
+				for i := range document[index].Children {
+					// Recursively check the children blocks
+					updated, updatedBlock, document[index].Children = n.checkUpdateBlockAtPosition(document[index].Children, i, updateBlockOp, updated, updatedBlock)
+				}
+			}
 		}
 	}
-
+	
 	return updated, updatedBlock, document
 }
 
