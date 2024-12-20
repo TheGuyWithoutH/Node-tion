@@ -14,40 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ----- Helper functions -----
-func CreateInsertsFromString(content string, addr string, blockID string, insertStart int) []types.CRDTOperation {
-	ops := make([]types.CRDTOperation, len(content))
-	for i, char := range content {
-		if i == 0 {
-			ops[i] = types.CRDTOperation{
-				Type:        types.CRDTInsertCharType,
-				Origin:      addr,
-				OperationID: uint64(i + insertStart),
-				DocumentID:  "doc1",
-				BlockID:     blockID,
-				Operation:   CreateInsertOp("", string(char)),
-			}
-		} else {
-			ops[i] = types.CRDTOperation{
-				Type:        types.CRDTInsertCharType,
-				Origin:      addr,
-				OperationID: uint64(i + insertStart),
-				DocumentID:  "doc1",
-				BlockID:     blockID,
-				Operation:   CreateInsertOp(strconv.Itoa(i+insertStart-1)+"@"+addr, string(char)),
-			}
-		}
-	}
-	return ops
-}
-
-func CreateInsertOp(afterID string, content string) types.CRDTInsertChar {
-	return types.CRDTInsertChar{
-		AfterID:   afterID,
-		Character: content,
-	}
-}
-
 // ----- Tests -----
 
 // Check that the CompileDocument can generate a JSON string from the editor of one peer
@@ -574,7 +540,7 @@ func Test_Document_Compilation_1Peer_RemoveUpdateBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	// Compile the document
-	_, err = peer.CompileDocument(docID)
+	doc, err = peer.CompileDocument(docID)
 	require.NoError(t, err)
 
 	expected = "[{\"id\":\"9@temp\",\"type\":\"heading\",\"props\":{\"textColor\":\"blue\",\"backgroundColor\":\"white\",\"textAlignment\":\"center\",\"level\":2},\"content\":[{\"type\":\"text\",\"charIds\":[\"10@temp\",\"11@temp\",\"12@temp\",\"13@temp\",\"14@temp\",\"15@temp\"],\"text\":\"World!\",\"styles\":{}}],\"children\":[]}]"
@@ -703,6 +669,67 @@ func Test_Document_Compilation_2Peers_Separate_Blocks(t *testing.T) {
 	require.NoError(t, err)
 
 	require.JSONEq(t, docYas, docUgo)
+}
+
+func Test_Document_Compilation_2Peers_SameBlock(t *testing.T) {
+	transp := channel.NewTransport()
+	peerYas := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peerYas.Stop()
+	peerUgo := z.NewTestNode(t, peerFac, transp, "127.0.0.1:0", z.WithTotalPeers(1))
+	defer peerUgo.Stop()
+
+	docID := "doc1"
+	block1ID := "1" + "@yas"
+	addBlock1 := types.CRDTAddBlock{
+		AfterBlock:  "",
+		ParentBlock: "",
+		BlockType:   types.ParagraphBlockType,
+		Props: types.DefaultBlockProps{
+			BackgroundColor: "default",
+			TextColor:       "default",
+			TextAlignment:   "left",
+		},
+	}
+
+	// Populate the editor with some operations
+	//Add a block
+	opYas := []types.CRDTOperation{{
+		Type:        types.CRDTAddBlockType,
+		Origin:      "yas",
+		OperationID: 1,
+		DocumentID:  docID,
+		BlockID:     block1ID,
+		Operation:   addBlock1,
+	}}
+
+	// Add Block
+	err := peerYas.UpdateEditor(opYas)
+	require.NoError(t, err)
+	err = peerUgo.UpdateEditor(opYas)
+	require.NoError(t, err)
+
+	// > Yas: "I am Y." & Ugo: "I am U."
+	insertsYas := tests.CreateInsertsFromString("I am Y", "yas", docID, block1ID, 2)
+	insertsUgo := tests.CreateInsertsFromString("I am U", "ugo", docID, block1ID, 2)
+
+	// Add text
+	err = peerYas.UpdateEditor(insertsYas)
+	require.NoError(t, err)
+	err = peerYas.UpdateEditor(insertsUgo)
+	require.NoError(t, err)
+	err = peerUgo.UpdateEditor(insertsUgo)
+	require.NoError(t, err)
+	err = peerUgo.UpdateEditor(insertsYas)
+	require.NoError(t, err)
+
+	// Compile the document
+	docYas, err := peerYas.CompileDocument(docID)
+	require.NoError(t, err)
+	docUgo, err := peerUgo.CompileDocument(docID)
+	require.NoError(t, err)
+
+	require.JSONEq(t, docYas, docUgo)
+
 }
 
 // Check that a document is stored in the correct directory.

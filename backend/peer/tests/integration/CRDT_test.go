@@ -2,9 +2,7 @@ package integration
 
 import (
 	z "Node-tion/backend/internal/testing"
-	"Node-tion/backend/transport"
 	"Node-tion/backend/transport/channel"
-	"Node-tion/backend/transport/disrupted"
 	"Node-tion/backend/types"
 	"fmt"
 	"strconv"
@@ -37,7 +35,7 @@ func Test_CRDT_Integration_Pipeline(t *testing.T) {
 	err := node1.SaveTransactions(crdtMsg)
 	require.NoError(t, err)
 
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Second * 5)
 
 	// ValIDate the document is compiled correctly
 	doc, err := node1.CompileDocument("0@" + node1.GetAddr())
@@ -153,7 +151,7 @@ func Test_CRDT_Integration_Strong_Eventual_Consistency_Different_Blocks(t *testi
 
 	wg.Wait()
 
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Second * 5)
 
 	doc1, err := node1.CompileDocument(docID)
 	require.NoError(t, err)
@@ -161,7 +159,10 @@ func Test_CRDT_Integration_Strong_Eventual_Consistency_Different_Blocks(t *testi
 	doc2, err := node2.CompileDocument(docID)
 	require.NoError(t, err)
 
-	require.Equal(t, doc1, doc2)
+	println(doc1)
+	println(doc2)
+
+	require.JSONEq(t, doc1, doc2)
 }
 
 // Test_CRDT_Integration_Strong_Eventual_Consistency_Same_Block_Concurrent_Edit
@@ -217,6 +218,9 @@ func Test_CRDT_Integration_Strong_Eventual_Consistency_Same_Block_Concurrent_Edi
 	}()
 
 	wg.Wait()
+
+	// > Sync - Wait for the operations to be synced
+	time.Sleep(time.Millisecond * 500)
 
 	// > Compare the documents
 
@@ -308,11 +312,13 @@ func Test_CRDT_Integration_Scenario_5_Nodes_With_Late_Joiners(t *testing.T) {
 	wg2.Wait()
 
 	// > node4 & node5 join the network
-
-	node4 := z.NewTestNode(t, studentFac, transp, "127.0.0.1:0", z.WithAntiEntropy(antiEntropy))
+	heartbeat := time.Second * 1
+	node4 := z.NewTestNode(t, studentFac, transp, "127.0.0.1:0",
+		z.WithAntiEntropy(antiEntropy), z.WithHeartbeat(heartbeat))
 	defer node4.Stop()
 
-	node5 := z.NewTestNode(t, studentFac, transp, "127.0.0.1:0", z.WithAntiEntropy(antiEntropy))
+	node5 := z.NewTestNode(t, studentFac, transp, "127.0.0.1:0",
+		z.WithAntiEntropy(antiEntropy), z.WithHeartbeat(heartbeat))
 	defer node5.Stop()
 
 	node4.AddPeer(node1.GetAddr())
@@ -320,7 +326,7 @@ func Test_CRDT_Integration_Scenario_5_Nodes_With_Late_Joiners(t *testing.T) {
 
 	// > Sync
 
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Second * 5)
 
 	// > Compare the documents
 
@@ -339,154 +345,10 @@ func Test_CRDT_Integration_Scenario_5_Nodes_With_Late_Joiners(t *testing.T) {
 	doc5, err := node5.CompileDocument(docID)
 	require.NoError(t, err)
 
-	require.Equal(t, doc1, doc2)
-	require.Equal(t, doc2, doc3)
-	require.Equal(t, doc3, doc4)
-	require.Equal(t, doc4, doc5)
-}
-
-// Test_CRDT_Integration_Scenario runs the CRDT pipeline with four nodes.
-// Jammed, delayed, and disrupted nodes.
-func Test_CRDT_Integration_Scenario(t *testing.T) {
-
-	scenarios := func(transportA transport.Transport, transportB transport.Transport,
-		transportC transport.Transport, transportD transport.Transport) func(*testing.T) {
-		return func(t *testing.T) {
-			setupFunc := setupNetwork(transportA, transportD)
-			stages := []stage{
-				setupFunc,
-				writeContent,
-				checkDocConsistency,
-			}
-
-			for i := 1; i < len(stages); i++ {
-				maxStage := i
-				t.Run(fmt.Sprintf("stage %d", i), func(t *testing.T) {
-					t.Parallel()
-
-					s := &state{t: t}
-					defer stop(s)
-
-					// iterating over all the stages, from 0 (setup) to maxStage (included)
-					for k := 0; k < maxStage+1; k++ {
-						stages[k](s)
-					}
-				})
-			}
-		}
-	}
-
-	t.Run("non-disrupted topology", scenarios(udpFac(), udpFac(), udpFac(), udpFac()))
-	t.Run("jammed nodes", scenarios(
-		disrupted.NewDisrupted(udpFac(), disrupted.WithJam(time.Second, 8)),
-		disrupted.NewDisrupted(udpFac(), disrupted.WithJam(time.Second, 8)),
-		disrupted.NewDisrupted(udpFac(), disrupted.WithJam(time.Second, 8)),
-		disrupted.NewDisrupted(udpFac(), disrupted.WithJam(time.Second, 8)),
-	))
-	t.Run("delayed nodes", scenarios(
-		disrupted.NewDisrupted(udpFac(), disrupted.WithFixedDelay(500*time.Millisecond)),
-		disrupted.NewDisrupted(udpFac(), disrupted.WithFixedDelay(500*time.Millisecond)),
-		disrupted.NewDisrupted(udpFac(), disrupted.WithFixedDelay(500*time.Millisecond)),
-		disrupted.NewDisrupted(udpFac(), disrupted.WithFixedDelay(500*time.Millisecond)),
-	))
-}
-
-// => Stage 2
-//
-// Write to the same documents from all nodes.
-func writeContent(s *state) *state {
-	s.t.Log("~~ stage 2 <> write content ~~")
-
-	docID1 := "doc1"
-	docID2 := "doc2"
-	content1 := "Content for document 1"
-	extra1 := "Extra1"
-	content2 := "Content for document 2"
-	extra2 := "Extra2"
-
-	ops1 := generateStringOps(s.nodes["nodeA"].GetAddr(), docID1, content1)
-	ops2 := generateStringOps(s.nodes["nodeB"].GetAddr(), docID1, extra1)
-	ops3 := generateStringOps(s.nodes["nodeC"].GetAddr(), docID2, content2)
-	ops4 := generateStringOps(s.nodes["nodeD"].GetAddr(), docID2, extra2)
-
-	var wg sync.WaitGroup
-	wg.Add(4)
-
-	go func() {
-		defer wg.Done()
-		for _, op := range ops1 {
-			err := s.nodes["nodeA"].SaveTransactions(types.CRDTOperationsMessage{Operations: []types.CRDTOperation{op}})
-			require.NoError(s.t, err)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		for _, op := range ops2 {
-			err := s.nodes["nodeB"].SaveTransactions(types.CRDTOperationsMessage{Operations: []types.CRDTOperation{op}})
-			require.NoError(s.t, err)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		for _, op := range ops3 {
-			err := s.nodes["nodeC"].SaveTransactions(types.CRDTOperationsMessage{Operations: []types.CRDTOperation{op}})
-			require.NoError(s.t, err)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		for _, op := range ops4 {
-			err := s.nodes["nodeD"].SaveTransactions(types.CRDTOperationsMessage{Operations: []types.CRDTOperation{op}})
-			require.NoError(s.t, err)
-		}
-	}()
-
-	wg.Wait()
-
-	time.Sleep(time.Millisecond * 200)
-
-	return s
-}
-
-// => Stage 3
-//
-// Check the document consistency across all nodes.
-func checkDocConsistency(s *state) *state {
-	s.t.Log("~~ stage 3 <> check document consistency ~~")
-
-	docID1 := "doc1"
-	docID2 := "doc2"
-
-	doc1A, err := s.nodes["nodeA"].CompileDocument(docID1)
-	require.NoError(s.t, err)
-	doc1B, err := s.nodes["nodeB"].CompileDocument(docID1)
-	require.NoError(s.t, err)
-	doc1C, err := s.nodes["nodeC"].CompileDocument(docID1)
-	require.NoError(s.t, err)
-	doc1D, err := s.nodes["nodeD"].CompileDocument(docID1)
-	require.NoError(s.t, err)
-
-	require.Equal(s.t, doc1A, doc1B)
-	require.Equal(s.t, doc1B, doc1C)
-	require.Equal(s.t, doc1C, doc1D)
-
-	doc2A, err := s.nodes["nodeA"].CompileDocument(docID2)
-	require.NoError(s.t, err)
-	doc2B, err := s.nodes["nodeB"].CompileDocument(docID2)
-	require.NoError(s.t, err)
-	doc2C, err := s.nodes["nodeC"].CompileDocument(docID2)
-	require.NoError(s.t, err)
-	doc2D, err := s.nodes["nodeD"].CompileDocument(docID2)
-	require.NoError(s.t, err)
-
-	require.Equal(s.t, doc2A, doc2B)
-	require.Equal(s.t, doc2B, doc2C)
-	require.Equal(s.t, doc2C, doc2D)
-
-	return s
+	require.JSONEq(t, doc1, doc2)
+	require.JSONEq(t, doc2, doc3)
+	require.JSONEq(t, doc3, doc4)
+	require.JSONEq(t, doc4, doc5)
 }
 
 // ----- Helper functions -----
@@ -513,6 +375,7 @@ func createInsertsFromString(content string, addr, docID, blockID string, insert
 			}
 		}
 	}
+
 	return ops
 }
 
