@@ -159,9 +159,6 @@ func Test_CRDT_Integration_Strong_Eventual_Consistency_Different_Blocks(t *testi
 	doc2, err := node2.CompileDocument(docID)
 	require.NoError(t, err)
 
-	println(doc1)
-	println(doc2)
-
 	require.JSONEq(t, doc1, doc2)
 }
 
