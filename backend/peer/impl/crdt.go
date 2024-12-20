@@ -508,59 +508,59 @@ func (n *node) checkAddBlockAtPosition(document []types.BlockFactory, index int,
 	added := false
 
 	// Check if the block is a child block
-	if addBlockOp.ParentBlock != "" {
-		if addBlockOp.ParentBlock == document[index].ID {
-			// Check if the block has no children yet
-			if document[index].Children == nil {
-				document[index].Children = make([]types.BlockFactory, 0)
+	if addBlockOp.ParentBlock != "" && addBlockOp.ParentBlock == document[index].ID {
+		// Check if the block has no children yet
+		if document[index].Children == nil {
+			document[index].Children = make([]types.BlockFactory, 0)
 
-				newBlock := types.BlockFactory{
-					ID:        addBlockOp.OpID,
-					BlockType: addBlockOp.BlockType,
-					Props:     addBlockOp.Props,
-					Children:  nil,
-				}
-				document[index].Children = append(document[index].Children, newBlock)
-				added = true
-			} else {
-				// Check where to add the block in the children
-				for i := range document[index].Children {
-					added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
-					if added {
-						break
-					}
-				}
-			}
-		} else {
-			// Check if the block is a child block of a child block
-			if document[index].Children != nil {
-				for i := range document[index].Children {
-					added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
-					if added {
-						break
-					}
-				}
-			}
-		}
-	} else {
-		// Check if the block is going after the current block
-		if addBlockOp.AfterBlock == "" || document[index].ID == addBlockOp.AfterBlock {
 			newBlock := types.BlockFactory{
 				ID:        addBlockOp.OpID,
 				BlockType: addBlockOp.BlockType,
 				Props:     addBlockOp.Props,
 				Children:  nil,
 			}
-			document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
+			document[index].Children = append(document[index].Children, newBlock)
+			added = true
+		} else if addBlockOp.AfterBlock == "" {
+			// Add the block to the start of the children
+			newBlock := types.BlockFactory{
+				ID:        addBlockOp.OpID,
+				BlockType: addBlockOp.BlockType,
+				Props:     addBlockOp.Props,
+				Children:  nil,
+			}
+			document[index].Children = append([]types.BlockFactory{newBlock}, document[index].Children...)
 			added = true
 		} else {
-			if document[index].Children != nil {
-				for i := range document[index].Children {
-					// Recursively check the children blocks
-					added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
-					if added {
-						break
-					}
+			// Check where to add the block in the children
+			for i := range document[index].Children {
+				added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+				if added {
+					break
+				}
+			}
+		}
+	}
+	
+	// Check if the block is going after the current block
+	if !added && (
+		(addBlockOp.AfterBlock == "" && addBlockOp.ParentBlock == "") ||
+		document[index].ID == addBlockOp.AfterBlock) {
+		newBlock := types.BlockFactory{
+			ID:        addBlockOp.OpID,
+			BlockType: addBlockOp.BlockType,
+			Props:     addBlockOp.Props,
+			Children:  nil,
+		}
+		document = append(document[:index+1], append([]types.BlockFactory{newBlock}, document[index+1:]...)...)
+		added = true
+	} else if !added {
+		if document[index].Children != nil {
+			for i := range document[index].Children {
+				// Recursively check the children blocks
+				added, document[index].Children = n.checkAddBlockAtPosition(document[index].Children, i, addBlockOp)
+				if added {
+					break
 				}
 			}
 		}
