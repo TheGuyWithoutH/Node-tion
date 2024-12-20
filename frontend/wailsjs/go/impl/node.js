@@ -14,8 +14,8 @@ export function AddBlockAndName(arg1) {
   return window['go']['impl']['node']['AddBlockAndName'](arg1);
 }
 
-export function AddMark(arg1, arg2) {
-  return window['go']['impl']['node']['AddMark'](arg1, arg2);
+export function AddNewDocument(arg1) {
+  return window['go']['impl']['node']['AddNewDocument'](arg1);
 }
 
 export function AddPeer(arg1) {
@@ -24,6 +24,10 @@ export function AddPeer(arg1) {
 
 export function AddRequest(arg1) {
   return window['go']['impl']['node']['AddRequest'](arg1);
+}
+
+export function AddSinglePeer(arg1) {
+  return window['go']['impl']['node']['AddSinglePeer'](arg1);
 }
 
 export function AntiEntropyTicker() {
@@ -60,10 +64,6 @@ export function ChatMessageCallback(arg1, arg2) {
 
 export function CompileDocument(arg1) {
   return window['go']['impl']['node']['CompileDocument'](arg1);
-}
-
-export function CreateBlock(arg1, arg2, arg3) {
-  return window['go']['impl']['node']['CreateBlock'](arg1, arg2, arg3);
 }
 
 export function CreateBudgetMap(arg1, arg2) {
@@ -132,10 +132,6 @@ export function ExportCRDTRemoveMark(arg1) {
 
 export function ExportCRDTUpdateBlock(arg1) {
   return window['go']['impl']['node']['ExportCRDTUpdateBlock'](arg1);
-}
-
-export function FilterOps(arg1, arg2) {
-  return window['go']['impl']['node']['FilterOps'](arg1, arg2);
 }
 
 export function ForwardSearchRequest(arg1, arg2, arg3, arg4) {
@@ -254,10 +250,6 @@ export function RemoteDownload(arg1) {
   return window['go']['impl']['node']['RemoteDownload'](arg1);
 }
 
-export function RemoveMark(arg1, arg2) {
-  return window['go']['impl']['node']['RemoveMark'](arg1, arg2);
-}
-
 export function RemovePeerFromCatalog(arg1, arg2) {
   return window['go']['impl']['node']['RemovePeerFromCatalog'](arg1, arg2);
 }
@@ -348,10 +340,6 @@ export function SetRoutingEntry(arg1, arg2) {
 
 export function SetSearchReplyChan(arg1, arg2) {
   return window['go']['impl']['node']['SetSearchReplyChan'](arg1, arg2);
-}
-
-export function SortInsertOps(arg1, arg2) {
-  return window['go']['impl']['node']['SortInsertOps'](arg1, arg2);
 }
 
 export function SplitMetafile(arg1) {

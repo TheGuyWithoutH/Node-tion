@@ -571,28 +571,6 @@ export namespace types {
 	        this.Budget = source["Budget"];
 	    }
 	}
-	export class TextStyle {
-	    Bold: boolean;
-	    Italic: boolean;
-	    Underline: boolean;
-	    Strikethrough: boolean;
-	    TextColor: string;
-	    BackgroundColor: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new TextStyle(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Bold = source["Bold"];
-	        this.Italic = source["Italic"];
-	        this.Underline = source["Underline"];
-	        this.Strikethrough = source["Strikethrough"];
-	        this.TextColor = source["TextColor"];
-	        this.BackgroundColor = source["BackgroundColor"];
-	    }
-	}
 
 }
 
