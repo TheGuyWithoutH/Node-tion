@@ -76,10 +76,13 @@ func (n *node) processInsertChar(
 	if afterID != lastAfterID {
 		pos := n.getIDIndex(afterID, *charIDs)
 		if pos == -1 {
-			return fmt.Errorf("failed to find afterID in charIDs")
+			n.logCRDT.Info().Msgf("failed to find afterID in charIDs, %v", afterID)
+			*text = insertOp.Character + *text
+			*charIDs = append([]string{opID}, *charIDs...)
+		} else {
+			*charIDs = append((*charIDs)[:pos+1], append([]string{opID}, (*charIDs)[pos+1:]...)...)
+			*text = (*text)[:pos+1] + insertOp.Character + (*text)[pos+1:]
 		}
-		*charIDs = append((*charIDs)[:pos+1], append([]string{opID}, (*charIDs)[pos+1:]...)...)
-		*text = (*text)[:pos+1] + insertOp.Character + (*text)[pos+1:]
 	} else {
 		*text += insertOp.Character
 		*charIDs = append(*charIDs, opID)
