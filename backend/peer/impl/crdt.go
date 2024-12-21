@@ -3,6 +3,7 @@ package impl
 import (
 	"Node-tion/backend/types"
 	"fmt"
+	"golang.org/x/xerrors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -73,16 +74,20 @@ func (n *node) processInsertChar(
 		lastAfterID = (*charIDs)[len(*charIDs)-1]
 	}
 
+	if afterID == "" {
+		*text += insertOp.Character
+		*charIDs = append(*charIDs, opID)
+		return nil
+	}
+
 	if afterID != lastAfterID {
 		pos := n.getIDIndex(afterID, *charIDs)
 		if pos == -1 {
-			n.logCRDT.Info().Msgf("failed to find afterID in charIDs, %v", afterID)
-			*text = insertOp.Character + *text
-			*charIDs = append([]string{opID}, *charIDs...)
-		} else {
-			*charIDs = append((*charIDs)[:pos+1], append([]string{opID}, (*charIDs)[pos+1:]...)...)
-			*text = (*text)[:pos+1] + insertOp.Character + (*text)[pos+1:]
+			return xerrors.Errorf("failed to find afterID in charIDs, %v", afterID)
 		}
+		*charIDs = append((*charIDs)[:pos+1], append([]string{opID}, (*charIDs)[pos+1:]...)...)
+		*text = (*text)[:pos+1] + insertOp.Character + (*text)[pos+1:]
+
 	} else {
 		*text += insertOp.Character
 		*charIDs = append(*charIDs, opID)

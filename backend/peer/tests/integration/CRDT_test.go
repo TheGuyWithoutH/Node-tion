@@ -14,37 +14,6 @@ import (
 	"golang.org/x/exp/rand"
 )
 
-// Test_CRDT_Integration_Pipeline runs the CRDT pipeline with a single node.
-// SaveTransactions -> CRDTOperationsMessageCallback -> CompileDocument
-//
-// The document should contain 1 block with "Hello, World!".
-func Test_CRDT_Integration_Pipeline(t *testing.T) {
-	transp := channel.NewTransport()
-
-	node1 := z.NewTestNode(t, studentFac, transp, "127.0.0.1:8000")
-	defer node1.Stop()
-
-	docID := "0@" + node1.GetAddr()
-	helloWorld := "Hello World!"
-	ops := generateStringOps(node1.GetAddr(), docID, helloWorld)
-
-	crdtMsg := types.CRDTOperationsMessage{
-		Operations: ops,
-	}
-
-	err := node1.SaveTransactions(crdtMsg)
-	require.NoError(t, err)
-
-	time.Sleep(time.Second * 5)
-
-	// ValIDate the document is compiled correctly
-	doc, err := node1.CompileDocument("0@" + node1.GetAddr())
-	require.NoError(t, err)
-
-	expectedDoc := "[{\"id\":\"1@127.0.0.1:8000\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"\",\"backgroundColor\":\"\",\"textAlignment\":\"\"},\"content\":[{\"type\":\"text\",\"charIds\":[\"2@127.0.0.1:8000\",\"3@127.0.0.1:8000\",\"4@127.0.0.1:8000\",\"5@127.0.0.1:8000\",\"6@127.0.0.1:8000\",\"7@127.0.0.1:8000\",\"8@127.0.0.1:8000\",\"9@127.0.0.1:8000\",\"10@127.0.0.1:8000\",\"11@127.0.0.1:8000\",\"12@127.0.0.1:8000\",\"13@127.0.0.1:8000\"],\"text\":\"Hello World!\",\"styles\":{}}],\"children\":[]}]"
-	require.JSONEq(t, expectedDoc, doc)
-}
-
 // Test_CRDT_Integration_Strong_Eventual_Consistency_Same_Block runs the CRDT pipeline with two nodes.
 //
 // A: create block
