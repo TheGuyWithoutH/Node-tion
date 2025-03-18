@@ -1,12 +1,12 @@
 <img src="https://github.com/user-attachments/assets/0f56020c-70d6-4028-9d12-2303988bdf4b" width="150">
 
-# BalduchColab - A Decentralized Block Editor App Based on Peritext
+# Node-tion - A Decentralized Block Editor App Based on Peritext
 
 
 
 ## Introduction
 
-BalduchColab is a decentralized rich text block editor based on [Peritext](https://www.inkandswitch.com/peritext/) CRDT algorithm, built in Go and React. It uses a Peerster network to share document updates among peers in the network. Our objective is to make a user friendly application that can be installed to try out a Peritext like algorithm that includes blocks.
+Node-tion is a decentralized rich text block editor based on [Peritext](https://www.inkandswitch.com/peritext/) CRDT algorithm, built in Go and React. It uses a Peerster network to share document updates among peers in the network. Our objective is to make a user friendly application that can be installed to try out a Peritext like algorithm that includes blocks.
 
 ## Installation
 
@@ -48,7 +48,7 @@ To build a redistributable, production mode package, use `wails build`.
 
 ### Add a Peer
 
-To use BalduchColab with someone else, you need to first make sure that all the computers are in the same local network. You can then all launch the app and go to the 'AddPeer' screen.
+To use Node-tion with someone else, you need to first make sure that all the computers are in the same local network. You can then all launch the app and go to the 'AddPeer' screen.
 Here, you find the node IP address and port to share with other peers. You have to add each other using those addresses and ports. Once this is done, you can go on to editing a page in the Editor.
 
 <p align="center">
